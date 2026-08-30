@@ -1,0 +1,58 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    background-color: #FDFBF7;
+    color: #3D3A30;
+  }
+  
+  h1, h2, h3, .font-serif-italic {
+    font-family: 'Fraunces', Georgia, serif;
+    font-style: italic;
+  }
+
+  .font-display {
+    font-family: 'Fraunces', Georgia, serif;
+  }
+  
+  .font-heading {
+    font-family: 'Outfit', 'Plus Jakarta Sans', sans-serif;
+  }
+}
+
+/* Natural Tones custom delicate patterns & accents */
+.bg-natural-canvas {
+  background-color: #FDFBF7;
+}
+
+.bg-natural-sand {
+  background-color: #F0EBE0;
+}
+
+.bg-natural-olive {
+  background-color: #5A5A40;
+}
+
+.text-natural-olive {
+  color: #5A5A40;
+}
+
+.border-natural-sand {
+  border-color: #E8E2D6;
+}
+
+.shadow-natural-solid {
+  box-shadow: 6px 6px 0px #5A5A40;
+}
+
+.shadow-natural-solid-sm {
+  box-shadow: 4px 4px 0px #5A5A40;
+}
+
+.bg-grid-natural {
+  background-size: 32px 32px;
+  background-image: 
+    linear-gradient(to right, rgba(90, 90, 64, 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(90, 90, 64, 0.06) 1px, transparent 1px);
+}

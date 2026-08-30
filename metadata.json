@@ -1,0 +1,6 @@
+{
+  "name": "Community Vendor Marketplace & Festival Expo",
+  "description": "Official landing page and vendor booking portal for community marketplaces, festivals, and artisan expos.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

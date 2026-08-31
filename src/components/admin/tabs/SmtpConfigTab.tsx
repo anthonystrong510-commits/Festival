@@ -42,14 +42,15 @@ export function SmtpConfigTab({ config, onSaveConfig }: SmtpConfigTabProps) {
   const [isTesting, setIsTesting] = useState(false);
   const [testLogs, setTestLogs] = useState<string[]>([]);
   const [testResult, setTestResult] = useState<'idle' | 'success' | 'failure'>('idle');
+  const [testRecipientEmail, setTestRecipientEmail] = useState(config?.fromEmail || '');
 
   // Preset Providers for quick configuration
   const PRESETS = [
+    { name: 'Google Workspace / Gmail', host: 'smtp.gmail.com', port: 465, secure: true, username: 'organizer@gmail.com' },
     { name: 'SendGrid', host: 'smtp.sendgrid.net', port: 587, secure: false, username: 'apikey' },
     { name: 'Mailgun', host: 'smtp.mailgun.org', port: 587, secure: false, username: 'postmaster@yourdomain.com' },
     { name: 'Amazon SES', host: 'email-smtp.us-east-1.amazonaws.com', port: 587, secure: false, username: 'AKIA...' },
-    { name: 'Postmark', host: 'smtp.postmarkapp.com', port: 587, secure: false, username: 'server-token' },
-    { name: 'Google Workspace / Gmail', host: 'smtp.gmail.com', port: 465, secure: true, username: 'organizers@festival.org' }
+    { name: 'Postmark', host: 'smtp.postmarkapp.com', port: 587, secure: false, username: 'server-token' }
   ];
 
   const handleApplyPreset = (preset: typeof PRESETS[0]) => {
@@ -80,30 +81,49 @@ export function SmtpConfigTab({ config, onSaveConfig }: SmtpConfigTabProps) {
     setTimeout(() => setSaveSuccess(false), 2500);
   };
 
-  const handleRunDiagnosticTest = () => {
+  const handleRunDiagnosticTest = async () => {
     setIsTesting(true);
     setTestResult('idle');
     setTestLogs([
-      `[1/4] Initiating socket handshake with ${form.host}:${form.port}...`,
+      `[1/4] Dispatching live test payload to /api/test-smtp...`,
+      `Target Gateway: ${form.host}:${form.port} | User: "${form.username}"`
     ]);
 
-    setTimeout(() => {
+    try {
+      const res = await fetch('/api/test-smtp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          host: form.host,
+          port: form.port,
+          secure: form.secure,
+          username: form.username,
+          password: form.password,
+          fromEmail: form.fromEmail,
+          fromName: form.fromName,
+          recipientEmail: testRecipientEmail.trim() || undefined
+        })
+      });
+
+      const data = await res.json();
+      if (data.logs && Array.isArray(data.logs)) {
+        setTestLogs(data.logs);
+      }
+
+      if (data.success) {
+        setTestResult('success');
+      } else {
+        setTestResult('failure');
+      }
+    } catch (err: any) {
       setTestLogs(prev => [
         ...prev,
-        `[2/4] EHLO festival-gateway.cloud connected. Server 220 greeting received.`,
-        `[3/4] Establishing STARTTLS cryptographic cipher layer (TLSv1.3)...`
+        `[Network Error] Could not reach SMTP backend service: ${err.message || err}`
       ]);
-
-      setTimeout(() => {
-        setTestLogs(prev => [
-          ...prev,
-          `[4/4] AUTH PLAIN verification for user "${form.username}" successful.`,
-          `250 OK: SMTP Mail server is operational and verified for outbound queue.`
-        ]);
-        setIsTesting(false);
-        setTestResult('success');
-      }, 900);
-    }, 800);
+      setTestResult('failure');
+    } finally {
+      setIsTesting(false);
+    }
   };
 
   return (
@@ -296,24 +316,54 @@ export function SmtpConfigTab({ config, onSaveConfig }: SmtpConfigTabProps) {
               </div>
 
               {/* Server Test Box */}
-              <div className="pt-3 border-t border-[#E8E2D6]">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-bold text-[#3D3A30]">Connection Verification:</span>
-                  <button
-                    type="button"
-                    onClick={handleRunDiagnosticTest}
-                    disabled={isTesting}
-                    className="px-3.5 py-1.5 rounded-xl bg-[#F7F5EE] hover:bg-[#EAE4D6] text-[#5A5A40] border border-[#E8E2D6] text-xs font-bold flex items-center gap-1.5 transition-colors disabled:opacity-50"
-                  >
-                    <RefreshCw className={`w-3.5 h-3.5 ${isTesting ? 'animate-spin' : ''}`} />
-                    <span>{isTesting ? 'Testing Socket...' : 'Test Connection'}</span>
-                  </button>
+              <div className="pt-3 border-t border-[#E8E2D6] space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <span className="text-xs font-bold text-[#3D3A30]">Live Socket & Relay Diagnostic:</span>
+                  <div className="flex items-center gap-2">
+                    {testResult === 'success' && (
+                      <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                        <Check className="w-3 h-3" /> Socket Operational
+                      </span>
+                    )}
+                    {testResult === 'failure' && (
+                      <span className="text-[11px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3" /> Connection Check Failed
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleRunDiagnosticTest}
+                      disabled={isTesting}
+                      className="px-3.5 py-1.5 rounded-xl bg-[#5A5A40] hover:bg-[#464632] text-white text-xs font-bold flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${isTesting ? 'animate-spin' : ''}`} />
+                      <span>{isTesting ? 'Testing Socket...' : 'Test Connection & Send Email'}</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-[#7A7566] mb-1">
+                    Send Live Verification Test To (Optional):
+                  </label>
+                  <input
+                    type="email"
+                    placeholder="Enter your email (e.g. muokltd@gmail.com) to receive live test message"
+                    value={testRecipientEmail}
+                    onChange={(e) => setTestRecipientEmail(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-[#E8E2D6] bg-white text-xs text-[#3D3A30]"
+                  />
                 </div>
 
                 {testLogs.length > 0 && (
-                  <div className="p-3 bg-[#1E1E1E] text-emerald-400 font-mono text-[11px] rounded-xl space-y-1 overflow-x-auto">
+                  <div className="p-3.5 bg-[#1E1E1E] text-emerald-400 font-mono text-[11px] rounded-xl space-y-1.5 overflow-x-auto max-h-48">
                     {testLogs.map((log, i) => (
-                      <div key={i}>{log}</div>
+                      <div 
+                        key={i} 
+                        className={log.startsWith('[ERROR]') || log.includes('Failed') ? 'text-rose-400 font-bold' : log.includes('successfully delivered') || log.includes('verified successfully') ? 'text-emerald-300 font-bold' : 'text-emerald-400'}
+                      >
+                        {log}
+                      </div>
                     ))}
                   </div>
                 )}

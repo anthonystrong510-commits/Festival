@@ -410,6 +410,52 @@
         }
       },
       "required": ["email", "role"]
+    },
+    "OutboundEmailLog": {
+      "title": "OutboundEmailLog",
+      "description": "Log of automated transactional emails dispatched to vendors and attendees.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "recipientEmail": {
+          "type": "string",
+          "format": "email",
+          "maxLength": 150
+        },
+        "recipientName": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "templateKey": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "subject": {
+          "type": "string",
+          "maxLength": 250
+        },
+        "plainText": {
+          "type": "string",
+          "maxLength": 10000
+        },
+        "htmlBody": {
+          "type": "string",
+          "maxLength": 25000
+        },
+        "status": {
+          "type": "string",
+          "enum": ["delivered", "simulated", "failed", "pending"]
+        },
+        "antiSpamScore": {
+          "type": "number"
+        },
+        "sentAt": {
+          "type": "string"
+        }
+      },
+      "required": ["recipientEmail", "subject", "status", "sentAt"]
     }
   },
   "firestore": {
@@ -433,9 +479,14 @@
       "schema": "SmtpConfig",
       "description": "SMTP and anti-spam deliverability configurations."
     },
+    "/outbound_email_logs/{logId}": {
+      "schema": "OutboundEmailLog",
+      "description": "Transactional automated email logs."
+    },
     "/admins/{adminId}": {
       "schema": "AdminUser",
       "description": "Authorized administrators."
     }
   }
 }
+

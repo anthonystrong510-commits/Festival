@@ -149,3 +149,15 @@ export function generateDnsSpfRecord(domain = 'yourdomain.com', smtpHost = 'smtp
 export function generateDmarcRecord(domain = 'yourdomain.com', ruaEmail = 'dmarc-reports@yourdomain.com'): string {
   return `v=DMARC1; p=quarantine; rua=mailto:${ruaEmail}; pct=100; adkim=r; aspf=r`;
 }
+
+export function calculateAntiSpamScore(
+  subject: string,
+  htmlBody: string,
+  plainTextBody: string,
+  fromName?: string,
+  fromEmail?: string,
+  physicalAddress?: string
+): AntiSpamAudit {
+  const hasAddress = !!(physicalAddress && physicalAddress.trim().length > 5);
+  return auditAntiSpamQuality(subject, htmlBody, plainTextBody, hasAddress);
+}

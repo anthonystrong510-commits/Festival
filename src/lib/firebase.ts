@@ -28,7 +28,8 @@ import {
   AttendeeRsvpRecord, 
   FestivalConfigData, 
   EmailTemplateData, 
-  SmtpConfigData 
+  SmtpConfigData,
+  OutboundEmailLog 
 } from '../types';
 import { EVENT_CONFIG } from '../data/festivalData';
 import { DEFAULT_EMAIL_TEMPLATES } from '../data/defaultEmailTemplates';
@@ -330,6 +331,48 @@ export async function saveSmtpConfig(config: SmtpConfigData): Promise<void> {
     });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+
+// 7.1 Outbound Email Logs API
+export async function logOutboundEmail(logData: OutboundEmailLog): Promise<void> {
+  const logId = logData.id || `mail-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`;
+  const path = `outbound_email_logs/${logId}`;
+  try {
+    await setDoc(doc(db, 'outbound_email_logs', logId), {
+      ...logData,
+      id: logId,
+      sentAt: logData.sentAt || new Date().toISOString()
+    });
+  } catch (error) {
+    console.warn('Note: Could not write email log to Firestore:', error);
+  }
+}
+
+export function subscribeOutboundEmailLogs(callback: (logs: OutboundEmailLog[]) => void) {
+  const q = query(collection(db, 'outbound_email_logs'), orderBy('sentAt', 'desc'));
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const list: OutboundEmailLog[] = [];
+      snapshot.forEach((d) => {
+        list.push({ id: d.id, ...(d.data() as Omit<OutboundEmailLog, 'id'>) });
+      });
+      callback(list);
+    },
+    (error) => {
+      console.warn('Snapshot error for outbound_email_logs:', error);
+      callback([]);
+    }
+  );
+}
+
+export async function deleteOutboundEmailLog(id: string): Promise<void> {
+  const path = `outbound_email_logs/${id}`;
+  try {
+    await deleteDoc(doc(db, 'outbound_email_logs', id));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
   }
 }
 

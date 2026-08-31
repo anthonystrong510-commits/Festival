@@ -75,6 +75,15 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
+    // Outbound Email Logs
+    match /outbound_email_logs/{logId} {
+      allow create: if isValidId(logId) &&
+        request.resource.data.recipientEmail is string &&
+        request.resource.data.recipientEmail.size() <= 150 &&
+        request.resource.data.subject is string;
+      allow read, update, delete: if isAdmin();
+    }
+
     // Admins Collection
     match /admins/{adminId} {
       allow read: if isSignedIn();

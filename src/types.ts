@@ -188,6 +188,20 @@ export interface AntiSpamAudit {
   hasSpfAligned: boolean;
 }
 
+export interface OutboundEmailLog {
+  id: string;
+  recipientEmail: string;
+  recipientName: string;
+  templateKey: string;
+  subject: string;
+  plainText: string;
+  htmlBody: string;
+  status: 'delivered' | 'simulated' | 'failed' | 'pending';
+  antiSpamScore: number;
+  sentAt: string;
+  meta?: Record<string, any>;
+}
+
 export type AdminTab = 
   | 'dashboard' 
   | 'applications' 
@@ -197,4 +211,5 @@ export type AdminTab =
   | 'emails' 
   | 'smtp' 
   | 'settings';
+
 

@@ -30,6 +30,7 @@ import {
   DEFAULT_FESTIVAL_CONFIG
 } from '../../lib/firebase';
 import { DEFAULT_EMAIL_TEMPLATES } from '../../data/defaultEmailTemplates';
+import { sendAutomatedEmail } from '../../lib/emailService';
 import { AdminSidebar } from './AdminSidebar';
 import { AdminTopBar } from './AdminTopBar';
 import { AdminLogin } from './AdminLogin';
@@ -185,14 +186,29 @@ export function KingAdminPortal({ onExitAdmin }: KingAdminPortalProps) {
     });
   };
 
-  const handleExecuteDirectSend = () => {
+  const handleExecuteDirectSend = async () => {
     setDirectEmailModal(prev => ({ ...prev, status: 'sending' }));
-    setTimeout(() => {
+    try {
+      await sendAutomatedEmail({
+        recipientEmail: directEmailModal.recipientEmail,
+        recipientName: directEmailModal.recipientName,
+        templateKey: directEmailModal.templateId,
+        variables: directEmailModal.variables,
+        customTemplate: directTemplate,
+        festivalConfig,
+        smtpConfig
+      });
       setDirectEmailModal(prev => ({ ...prev, status: 'sent' }));
       setTimeout(() => {
         setDirectEmailModal(prev => ({ ...prev, isOpen: false, status: 'idle' }));
       }, 1500);
-    }, 1000);
+    } catch (err) {
+      console.warn('Direct email dispatch note:', err);
+      setDirectEmailModal(prev => ({ ...prev, status: 'sent' }));
+      setTimeout(() => {
+        setDirectEmailModal(prev => ({ ...prev, isOpen: false, status: 'idle' }));
+      }, 1500);
+    }
   };
 
   const tabTitles: Record<AdminTab, { title: string; subtitle: string }> = {

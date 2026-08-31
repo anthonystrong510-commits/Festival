@@ -371,6 +371,8 @@ export function KingAdminPortal({ onExitAdmin }: KingAdminPortalProps) {
                 onSaveConfig={(cfg) => saveFestivalConfig(cfg)}
                 onSeedData={handleSeedData}
                 isSeeding={isSeeding}
+                smtpConfig={smtpConfig}
+                onNavigateToSmtp={() => setCurrentTab('smtp')}
               />
             )}
           </div>

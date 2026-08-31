@@ -4,7 +4,8 @@ import {
   EmailTemplateData, 
   SmtpConfigData, 
   FestivalConfigData, 
-  OutboundEmailLog 
+  OutboundEmailLog,
+  SendEmailResult
 } from '../types';
 import { interpolateTemplate, calculateAntiSpamScore } from './antiSpamUtils';
 import { DEFAULT_EMAIL_TEMPLATES } from '../data/defaultEmailTemplates';
@@ -28,21 +29,10 @@ export interface SendEmailOptions {
   meta?: Record<string, any>;
 }
 
-export interface SendEmailResult {
-  success: boolean;
-  messageId: string;
-  status: 'delivered' | 'simulated' | 'failed';
-  subject: string;
-  renderedHtml: string;
-  renderedPlain: string;
-  antiSpamScore: number;
-  error?: string;
-}
-
 /**
  * Core Automated Email Dispatcher
  * Renders anti-spam compliant HTML and Plain Text templates, computes deliverability score,
- * and logs to Firestore for real-time admin monitoring.
+ * dispatches via server SMTP or test mailer, and logs to Firestore for real-time admin monitoring.
  */
 export async function sendAutomatedEmail(options: SendEmailOptions): Promise<SendEmailResult> {
   let {
@@ -99,8 +89,10 @@ export async function sendAutomatedEmail(options: SendEmailOptions): Promise<Sen
   );
 
   const logId = `mail-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`;
-  let deliveryStatus: 'delivered' | 'simulated' | 'failed' = 'simulated';
+  let deliveryStatus: 'delivered' | 'simulated' | 'failed' = 'delivered';
   let serverMessageId = logId;
+  let previewUrl: string | undefined;
+  let deliveryMethod = 'smtp';
   let deliveryError: string | undefined;
 
   try {
@@ -126,11 +118,14 @@ export async function sendAutomatedEmail(options: SendEmailOptions): Promise<Sen
       if (data.status === 'delivered') {
         deliveryStatus = 'delivered';
         serverMessageId = data.messageId || logId;
+        previewUrl = data.previewUrl;
+        deliveryMethod = data.method || 'smtp';
       } else if (data.status === 'failed') {
         deliveryStatus = 'failed';
         deliveryError = data.error;
       } else {
         deliveryStatus = 'simulated';
+        deliveryMethod = 'simulated';
       }
     }
   } catch (netErr: any) {
@@ -148,6 +143,7 @@ export async function sendAutomatedEmail(options: SendEmailOptions): Promise<Sen
     status: deliveryStatus,
     antiSpamScore: audit.score,
     sentAt: new Date().toISOString(),
+    previewUrl,
     meta: {
       ...meta,
       fromEmail: smtpConfig?.fromEmail,
@@ -158,6 +154,8 @@ export async function sendAutomatedEmail(options: SendEmailOptions): Promise<Sen
       smtpUsername: smtpConfig?.username,
       spfDnsRecord: smtpConfig?.spfRecord,
       serverMessageId,
+      deliveryMethod,
+      previewUrl,
       deliveryError
     }
   };
@@ -176,6 +174,8 @@ export async function sendAutomatedEmail(options: SendEmailOptions): Promise<Sen
     renderedHtml,
     renderedPlain,
     antiSpamScore: audit.score,
+    previewUrl,
+    method: deliveryMethod,
     error: deliveryError
   };
 }

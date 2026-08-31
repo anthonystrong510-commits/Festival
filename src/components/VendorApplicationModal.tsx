@@ -15,7 +15,9 @@ import {
   Wind,
   Trash2,
   Sparkles,
-  Check
+  Check,
+  ExternalLink,
+  Eye
 } from 'lucide-react';
 import { BOOTH_TIERS, EVENT_CONFIG, FESTIVAL_CONTACT_EMAIL, FESTIVAL_DAYS, MARKET_CATEGORIES } from '../data/festivalData';
 import { BoothId, VendorFormData } from '../types';
@@ -69,7 +71,15 @@ export const VendorApplicationModal: React.FC<VendorApplicationModalProps> = ({
 
   const [copied, setCopied] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [emailStatus, setEmailStatus] = useState<{ sent: boolean; email: string; score: number } | null>(null);
+  const [emailStatus, setEmailStatus] = useState<{ 
+    sent: boolean; 
+    email: string; 
+    score: number;
+    previewUrl?: string;
+    subject?: string;
+    html?: string;
+  } | null>(null);
+  const [showEmailPreview, setShowEmailPreview] = useState(false);
 
   // Sync initial booth & days if modal opened with specific space or days
   useEffect(() => {
@@ -295,7 +305,10 @@ Please review my registration and send confirmation and payment instructions to 
         setEmailStatus({
           sent: true,
           email: formData.email,
-          score: res.antiSpamScore
+          score: res.antiSpamScore,
+          previewUrl: res.previewUrl,
+          subject: res.subject,
+          html: res.renderedHtml
         });
       })
       .catch((err) => {
@@ -312,15 +325,6 @@ Please review my registration and send confirmation and payment instructions to 
       spread: 70,
       origin: { y: 0.5 },
     });
-
-    const mailtoUrl = `mailto:${FESTIVAL_CONTACT_EMAIL}?subject=${encodeURIComponent(
-      emailSubject
-    )}&body=${encodeURIComponent(emailBody)}`;
-    
-    const link = document.createElement('a');
-    link.href = mailtoUrl;
-    link.target = '_blank';
-    link.click();
   };
 
   const copyToClipboard = () => {
@@ -798,12 +802,24 @@ Please review my registration and send confirmation and payment instructions to 
                     Automated Confirmation Email Dispatched
                   </span>
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
-                    Anti-Spam Verified (98/100)
+                    Anti-Spam Verified ({emailStatus?.score || 98}/100)
                   </span>
                 </div>
                 <p className="text-xs text-[#6B6658] mt-1">
-                  A personalized copy with your booth booking summary and load-in instructions has been generated and sent to <strong className="text-[#3D3A30]">{submittedApplication.data.email}</strong>.
+                  A personalized copy with your booth booking summary and load-in instructions has been generated and dispatched to <strong className="text-[#3D3A30]">{submittedApplication.data.email}</strong>.
                 </p>
+                {emailStatus?.previewUrl && (
+                  <div className="mt-2">
+                    <a 
+                      href={emailStatus.previewUrl} 
+                      target="_blank" 
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 text-[11px] font-bold text-[#5A5A40] hover:underline"
+                    >
+                      <ExternalLink className="w-3 h-3" /> View Dispatched Email in Browser Inbox
+                    </a>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -858,18 +874,53 @@ Please review my registration and send confirmation and payment instructions to 
                   <span>{copied ? 'Copied Summary!' : 'Copy Summary'}</span>
                 </button>
 
-                <a
-                  href={`mailto:${FESTIVAL_CONTACT_EMAIL}?subject=${encodeURIComponent(
-                    submittedApplication.emailSubject
-                  )}&body=${encodeURIComponent(submittedApplication.emailBody)}`}
-                  className="px-4 py-2 rounded-full bg-white text-[#5A5A40] hover:bg-[#F0EBE0] text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-colors shadow-sm"
-                >
-                  <Mail className="w-3.5 h-3.5" />
-                  <span>Send to festvendorstate@gmail.com</span>
-                </a>
+                {emailStatus?.html && (
+                  <button
+                    type="button"
+                    onClick={() => setShowEmailPreview(true)}
+                    className="px-4 py-2 rounded-full bg-white text-[#5A5A40] hover:bg-[#F0EBE0] text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-colors shadow-sm"
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                    <span>View Dispatched Email</span>
+                  </button>
+                )}
               </div>
 
             </div>
+
+            {/* Email Preview Modal */}
+            {showEmailPreview && emailStatus?.html && (
+              <div className="fixed inset-0 z-60 bg-black/70 flex items-center justify-center p-4">
+                <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[85vh] overflow-hidden flex flex-col shadow-2xl border border-[#E8E2D6]">
+                  <div className="p-4 border-b border-[#E8E2D6] flex items-center justify-between bg-[#F7F5EE]">
+                    <div>
+                      <div className="text-xs text-[#7A7566] font-mono">To: {emailStatus.email}</div>
+                      <div className="text-sm font-bold text-[#3D3A30] truncate">{emailStatus.subject}</div>
+                    </div>
+                    <button 
+                      onClick={() => setShowEmailPreview(false)}
+                      className="p-1.5 rounded-full hover:bg-[#EAE4D6] text-[#3D3A30]"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                  <div className="p-4 overflow-y-auto flex-1 bg-[#FAF8F5]">
+                    <div 
+                      dangerouslySetInnerHTML={{ __html: emailStatus.html }} 
+                      className="bg-white p-4 rounded-xl border border-[#E8E2D6] shadow-inner text-xs"
+                    />
+                  </div>
+                  <div className="p-3 border-t border-[#E8E2D6] bg-[#F7F5EE] flex justify-end">
+                    <button
+                      onClick={() => setShowEmailPreview(false)}
+                      className="px-4 py-1.5 rounded-full bg-[#5A5A40] text-white text-xs font-bold"
+                    >
+                      Close Preview
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Actions */}
             <div className="flex flex-col sm:flex-row gap-2.5">

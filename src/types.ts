@@ -199,7 +199,21 @@ export interface OutboundEmailLog {
   status: 'delivered' | 'simulated' | 'failed' | 'pending';
   antiSpamScore: number;
   sentAt: string;
+  previewUrl?: string;
   meta?: Record<string, any>;
+}
+
+export interface SendEmailResult {
+  success: boolean;
+  messageId: string;
+  status: 'delivered' | 'simulated' | 'failed';
+  subject: string;
+  renderedHtml: string;
+  renderedPlain: string;
+  antiSpamScore: number;
+  previewUrl?: string;
+  method?: string;
+  error?: string;
 }
 
 export type AdminTab = 

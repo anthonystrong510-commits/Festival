@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { BOOTH_TIERS, EVENT_CONFIG, FESTIVAL_CONTACT_EMAIL, FESTIVAL_DAYS, MARKET_CATEGORIES } from '../data/festivalData';
 import { BoothId, VendorFormData } from '../types';
+import { createVendorApplication } from '../lib/firebase';
 
 interface VendorApplicationModalProps {
   isOpen: boolean;
@@ -252,6 +253,34 @@ Please review my registration and send confirmation and payment instructions to 
       emailBody,
       emailSubject,
       data: { ...formData, selectedBoothId, selectedDays },
+    });
+
+    // Write application record to Firestore
+    createVendorApplication({
+      id: appId,
+      businessName: formData.businessName,
+      contactName: formData.contactName,
+      email: formData.email,
+      phone: formData.phone,
+      website: formData.website || '',
+      category: formData.category,
+      selectedBoothId,
+      selectedDays,
+      productDescription: formData.productDescription,
+      photoLinks: formData.photoLinks || '',
+      isFoodVendor: isFoodCategory,
+      hasFoodPermit: formData.hasFoodPermit,
+      tempHygieneCompliant: formData.tempHygieneCompliant,
+      needsHandicapParking: formData.needsHandicapParking,
+      handicapNotes: formData.handicapNotes || '',
+      additionalRequests: formData.additionalRequests || '',
+      agreedToTerms: formData.agreedToTerms,
+      totalCalculatedFee: totalCost,
+      boothZoneAssignment: selectedTier.zone || 'Artisan Marketplace',
+      adminNotes: '',
+      paymentStatus: 'unpaid'
+    }).catch(err => {
+      console.warn('Application saved in browser memory; Firestore sync status:', err);
     });
 
     confetti({

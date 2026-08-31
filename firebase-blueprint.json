@@ -1,0 +1,441 @@
+{
+  "entities": {
+    "VendorApplication": {
+      "title": "VendorApplication",
+      "description": "Submitted application from a small business or vendor wishing to exhibit at the festival.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the application"
+        },
+        "businessName": {
+          "type": "string",
+          "description": "Registered name of the business or artisan brand",
+          "maxLength": 150
+        },
+        "contactName": {
+          "type": "string",
+          "description": "Primary contact person name",
+          "maxLength": 100
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "Contact email address",
+          "maxLength": 150
+        },
+        "phone": {
+          "type": "string",
+          "description": "Contact phone number",
+          "maxLength": 50
+        },
+        "website": {
+          "type": "string",
+          "description": "Business website, Instagram, or social link",
+          "maxLength": 200
+        },
+        "category": {
+          "type": "string",
+          "description": "Vendor product category",
+          "maxLength": 100
+        },
+        "selectedBoothId": {
+          "type": "string",
+          "description": "Selected booth space tier ID",
+          "maxLength": 50
+        },
+        "selectedDays": {
+          "type": "array",
+          "description": "List of festival days selected for booking"
+        },
+        "productDescription": {
+          "type": "string",
+          "description": "Detailed description of products or services offered",
+          "maxLength": 1000
+        },
+        "photoLinks": {
+          "type": "string",
+          "description": "Links or notes regarding product photos",
+          "maxLength": 500
+        },
+        "isFoodVendor": {
+          "type": "boolean",
+          "description": "Whether the vendor serves food or edible items"
+        },
+        "hasFoodPermit": {
+          "type": "boolean",
+          "description": "Whether the vendor has required food permits"
+        },
+        "tempHygieneCompliant": {
+          "type": "boolean",
+          "description": "Whether food vendor is compliant with temperature and hygiene guidelines"
+        },
+        "needsHandicapParking": {
+          "type": "boolean",
+          "description": "Whether accessibility or handicap parking is requested"
+        },
+        "handicapNotes": {
+          "type": "string",
+          "description": "Special accessibility requirements",
+          "maxLength": 500
+        },
+        "additionalRequests": {
+          "type": "string",
+          "description": "Any additional requests or notes",
+          "maxLength": 500
+        },
+        "agreedToTerms": {
+          "type": "boolean",
+          "description": "Confirmation that vendor agreed to festival terms and conditions"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "approved", "rejected", "waitlist", "paid"],
+          "description": "Application review and confirmation status"
+        },
+        "totalCalculatedFee": {
+          "type": "number",
+          "description": "Total booth fee calculated based on days and tier"
+        },
+        "boothZoneAssignment": {
+          "type": "string",
+          "description": "Assigned zone or booth location on the festival map",
+          "maxLength": 100
+        },
+        "adminNotes": {
+          "type": "string",
+          "description": "Internal organizer review notes",
+          "maxLength": 1000
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when application was submitted"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when application was last modified"
+        }
+      },
+      "required": ["businessName", "contactName", "email", "category", "selectedBoothId", "selectedDays", "status", "createdAt"]
+    },
+    "AttendeeRsvp": {
+      "title": "AttendeeRsvp",
+      "description": "Visitor RSVP registration for free festival admission pass.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the RSVP"
+        },
+        "name": {
+          "type": "string",
+          "description": "Attendee full name",
+          "maxLength": 100
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "Attendee email address",
+          "maxLength": 150
+        },
+        "daysAttending": {
+          "type": "array",
+          "description": "Days attendee plans to visit"
+        },
+        "interests": {
+          "type": "array",
+          "description": "Selected festival interests and categories"
+        },
+        "groupSize": {
+          "type": "number",
+          "description": "Number of attendees in the party"
+        },
+        "newsletterOptIn": {
+          "type": "boolean",
+          "description": "Whether attendee opted in for future festival newsletters"
+        },
+        "checkedIn": {
+          "type": "boolean",
+          "description": "Whether attendee has checked in at the festival gate"
+        },
+        "checkedInAt": {
+          "type": "string",
+          "description": "Timestamp of gate check-in"
+        },
+        "passCode": {
+          "type": "string",
+          "description": "Unique ticket pass code for quick QR/barcode lookup",
+          "maxLength": 50
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when RSVP was registered"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when RSVP was last updated"
+        }
+      },
+      "required": ["name", "email", "daysAttending", "groupSize", "createdAt"]
+    },
+    "FestivalConfig": {
+      "title": "FestivalConfig",
+      "description": "Global festival configuration, venue details, and public admission settings.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Configuration document ID"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "shortName": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "heroHeadline": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "edition": {
+          "type": "string",
+          "maxLength": 150
+        },
+        "tagline": {
+          "type": "string",
+          "maxLength": 250
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "venueName": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "venueArea": {
+          "type": "string",
+          "maxLength": 150
+        },
+        "address": {
+          "type": "string",
+          "maxLength": 250
+        },
+        "cityState": {
+          "type": "string",
+          "maxLength": 150
+        },
+        "fullLocation": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "mapQuery": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "datesSummary": {
+          "type": "string",
+          "maxLength": 150
+        },
+        "durationBadge": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "admissionBadge": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "locationBadge": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "contactEmail": {
+          "type": "string",
+          "maxLength": 150
+        },
+        "freeAdmission": {
+          "type": "boolean"
+        },
+        "active": {
+          "type": "boolean"
+        },
+        "updatedAt": {
+          "type": "string"
+        }
+      },
+      "required": ["name", "contactEmail", "updatedAt"]
+    },
+    "EmailTemplate": {
+      "title": "EmailTemplate",
+      "description": "HTML and plain text email template with anti-spam compliance scoring and dynamic variables.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "key": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 150
+        },
+        "category": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "subject": {
+          "type": "string",
+          "maxLength": 250
+        },
+        "previewText": {
+          "type": "string",
+          "maxLength": 250
+        },
+        "htmlBody": {
+          "type": "string",
+          "maxLength": 20000
+        },
+        "plainTextBody": {
+          "type": "string",
+          "maxLength": 10000
+        },
+        "dynamicVariables": {
+          "type": "array"
+        },
+        "antiSpamScore": {
+          "type": "number"
+        },
+        "spamAdvice": {
+          "type": "array"
+        },
+        "isCustom": {
+          "type": "boolean"
+        },
+        "updatedAt": {
+          "type": "string"
+        }
+      },
+      "required": ["key", "title", "subject", "htmlBody", "updatedAt"]
+    },
+    "SmtpConfig": {
+      "title": "SmtpConfig",
+      "description": "Outgoing email SMTP server configuration, credentials, and anti-spam deliverability rules.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "host": {
+          "type": "string",
+          "maxLength": 150
+        },
+        "port": {
+          "type": "number"
+        },
+        "secure": {
+          "type": "boolean"
+        },
+        "username": {
+          "type": "string",
+          "maxLength": 150
+        },
+        "password": {
+          "type": "string",
+          "maxLength": 150
+        },
+        "fromName": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "fromEmail": {
+          "type": "string",
+          "maxLength": 150
+        },
+        "replyToEmail": {
+          "type": "string",
+          "maxLength": 150
+        },
+        "rateLimitPerHour": {
+          "type": "number"
+        },
+        "spfRecord": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "dkimSelector": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "dmarcPolicy": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "isEnabled": {
+          "type": "boolean"
+        },
+        "updatedAt": {
+          "type": "string"
+        }
+      },
+      "required": ["host", "port", "fromEmail", "updatedAt"]
+    },
+    "AdminUser": {
+      "title": "AdminUser",
+      "description": "Administrator account with management permissions.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "maxLength": 150
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "role": {
+          "type": "string",
+          "enum": ["superadmin", "admin"]
+        },
+        "createdAt": {
+          "type": "string"
+        }
+      },
+      "required": ["email", "role"]
+    }
+  },
+  "firestore": {
+    "/vendor_applications/{applicationId}": {
+      "schema": "VendorApplication",
+      "description": "Collection of vendor applications submitted via public form or admin panel."
+    },
+    "/attendee_rsvps/{rsvpId}": {
+      "schema": "AttendeeRsvp",
+      "description": "Collection of attendee registrations for festival passes and gate check-ins."
+    },
+    "/festival_config/{configId}": {
+      "schema": "FestivalConfig",
+      "description": "Global festival settings and event configuration document."
+    },
+    "/email_templates/{templateId}": {
+      "schema": "EmailTemplate",
+      "description": "Customizable email templates with anti-spam compliance scoring."
+    },
+    "/email_config/{configId}": {
+      "schema": "SmtpConfig",
+      "description": "SMTP and anti-spam deliverability configurations."
+    },
+    "/admins/{adminId}": {
+      "schema": "AdminUser",
+      "description": "Authorized administrators."
+    }
+  }
+}

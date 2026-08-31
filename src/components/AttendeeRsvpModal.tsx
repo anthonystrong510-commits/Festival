@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { EVENT_CONFIG, FESTIVAL_LOCATION } from '../data/festivalData';
 import { AttendeeFormData } from '../types';
+import { createAttendeeRsvp } from '../lib/firebase';
 
 interface AttendeeRsvpModalProps {
   isOpen: boolean;
@@ -86,6 +87,18 @@ export const AttendeeRsvpModal: React.FC<AttendeeRsvpModalProps> = ({ isOpen, on
       email: formData.email,
       days: formData.daysAttending,
       groupSize: formData.groupSize,
+    });
+
+    // Write attendee pass to Firestore
+    createAttendeeRsvp({
+      name: formData.name,
+      email: formData.email,
+      daysAttending: formData.daysAttending,
+      interests: formData.interests,
+      groupSize: formData.groupSize,
+      newsletterOptIn: formData.newsletterOptIn,
+    }).catch(err => {
+      console.warn('Attendee pass recorded locally; Firestore sync status:', err);
     });
 
     confetti({

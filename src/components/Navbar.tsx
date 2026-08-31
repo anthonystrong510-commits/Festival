@@ -1,14 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { Store, Calendar, MapPin, Menu, X, Mail, Ticket, ArrowRight, Sun, ShoppingBag } from 'lucide-react';
+import { Store, Calendar, MapPin, Menu, X, Mail, Ticket, ArrowRight, Sun, ShoppingBag, ShieldCheck } from 'lucide-react';
 import { EVENT_CONFIG, FESTIVAL_CONTACT_EMAIL } from '../data/festivalData';
 
 interface NavbarProps {
   onOpenAttendeeModal: () => void;
   onScrollToVendorBooking: () => void;
   onOpenVendorModal?: () => void;
+  onNavigateToAdmin?: () => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ onOpenAttendeeModal, onScrollToVendorBooking, onOpenVendorModal }) => {
+export const Navbar: React.FC<NavbarProps> = ({ 
+  onOpenAttendeeModal, 
+  onScrollToVendorBooking, 
+  onOpenVendorModal,
+  onNavigateToAdmin 
+}) => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -94,6 +100,17 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAttendeeModal, onScrollToV
               <Store className="w-3.5 h-3.5 text-[#5A5A40]" />
               <span>Apply as Vendor</span>
             </button>
+
+            {onNavigateToAdmin && (
+              <button
+                onClick={onNavigateToAdmin}
+                className="p-2.5 rounded-full text-[#5A5A40] hover:text-[#3D3A30] hover:bg-[#F0EBE0] border border-[#E8E2D6] transition-colors"
+                title="KingAdmin Operations Portal (/kingadmin)"
+                aria-label="Organizer Portal"
+              >
+                <ShieldCheck className="w-4 h-4 text-[#5A5A40]" />
+              </button>
+            )}
           </div>
 
           {/* Mobile Menu Toggle Button */}
@@ -165,6 +182,19 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAttendeeModal, onScrollToV
                 <Store className="w-4 h-4 text-[#5A5A40]" />
                 Apply for Vendor Space (Pop-up)
               </button>
+
+              {onNavigateToAdmin && (
+                <button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    onNavigateToAdmin();
+                  }}
+                  className="w-full py-2 rounded-full text-xs font-bold text-[#5A5A40] bg-[#EAE4D6] hover:bg-[#E0D9C8] flex items-center justify-center gap-2 transition-colors"
+                >
+                  <ShieldCheck className="w-4 h-4 text-[#5A5A40]" />
+                  <span>KingAdmin Portal (/kingadmin)</span>
+                </button>
+              )}
             </div>
 
             <div className="pt-2 text-center text-xs text-[#6B6658] flex items-center justify-center gap-1">

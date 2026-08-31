@@ -1,0 +1,84 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'muokltd@gmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Vendor Applications
+    match /vendor_applications/{applicationId} {
+      allow create: if isValidId(applicationId) &&
+        request.resource.data.businessName is string &&
+        request.resource.data.businessName.size() <= 150 &&
+        request.resource.data.contactName is string &&
+        request.resource.data.contactName.size() <= 100 &&
+        request.resource.data.email is string &&
+        request.resource.data.email.size() <= 150 &&
+        request.resource.data.category is string &&
+        request.resource.data.selectedBoothId is string &&
+        request.resource.data.selectedDays is list &&
+        request.resource.data.selectedDays.size() >= 1 &&
+        request.resource.data.status is string;
+
+      allow read: if isAdmin() || (
+        isSignedIn() && resource.data.email == request.auth.token.email
+      );
+
+      allow update, delete: if isAdmin();
+    }
+
+    // Attendee RSVPs
+    match /attendee_rsvps/{rsvpId} {
+      allow create: if isValidId(rsvpId) &&
+        request.resource.data.name is string &&
+        request.resource.data.name.size() <= 100 &&
+        request.resource.data.email is string &&
+        request.resource.data.email.size() <= 150 &&
+        request.resource.data.daysAttending is list &&
+        request.resource.data.daysAttending.size() >= 1 &&
+        request.resource.data.groupSize is number;
+
+      allow read, update, delete: if isAdmin();
+    }
+
+    // Public Festival Configuration
+    match /festival_config/{configId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Email Templates (Admin only)
+    match /email_templates/{templateId} {
+      allow read, write: if isAdmin();
+    }
+
+    // SMTP Configuration (Admin only)
+    match /email_config/{configId} {
+      allow read, write: if isAdmin();
+    }
+
+    // Admins Collection
+    match /admins/{adminId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+  }
+}

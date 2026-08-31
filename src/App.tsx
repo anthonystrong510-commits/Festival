@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Navbar } from './components/Navbar';
 import { Hero } from './components/Hero';
 import { AttendeeExperience } from './components/AttendeeExperience';
@@ -12,14 +12,51 @@ import { FaqAndGuidelines } from './components/FaqAndGuidelines';
 import { AttendeeRsvpModal } from './components/AttendeeRsvpModal';
 import { VendorApplicationModal } from './components/VendorApplicationModal';
 import { Footer } from './components/Footer';
+import { KingAdminPortal } from './components/admin/KingAdminPortal';
 import { Store, Ticket, Compass } from 'lucide-react';
 import { BoothId } from './types';
 
 export default function App() {
+  const [isAdminView, setIsAdminView] = useState(() => {
+    return (
+      window.location.pathname.startsWith('/kingadmin') ||
+      window.location.hash === '#kingadmin'
+    );
+  });
+
   const [attendeeModalOpen, setAttendeeModalOpen] = useState(false);
   const [vendorModalOpen, setVendorModalOpen] = useState(false);
   const [modalBoothId, setModalBoothId] = useState<BoothId>('tent-10x10');
   const [modalDays, setModalDays] = useState<Array<'fri' | 'sat' | 'sun'>>(['fri', 'sat', 'sun']);
+
+  // Sync URL changes and popstate (e.g. Back button or Direct URL input)
+  useEffect(() => {
+    const handleLocationChange = () => {
+      const isNowAdmin = 
+        window.location.pathname.startsWith('/kingadmin') ||
+        window.location.hash === '#kingadmin';
+      setIsAdminView(isNowAdmin);
+    };
+
+    window.addEventListener('popstate', handleLocationChange);
+    window.addEventListener('hashchange', handleLocationChange);
+    return () => {
+      window.removeEventListener('popstate', handleLocationChange);
+      window.removeEventListener('hashchange', handleLocationChange);
+    };
+  }, []);
+
+  const navigateToAdmin = () => {
+    window.history.pushState({}, '', '/kingadmin');
+    setIsAdminView(true);
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  };
+
+  const navigateToPublic = () => {
+    window.history.pushState({}, '', '/');
+    setIsAdminView(false);
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  };
 
   const scrollToVendorBooking = () => {
     const el = document.getElementById('vendor-booking');
@@ -43,6 +80,11 @@ export default function App() {
     setVendorModalOpen(true);
   };
 
+  // If in Admin Mode, render the comprehensive KingAdmin portal
+  if (isAdminView) {
+    return <KingAdminPortal onExitAdmin={navigateToPublic} />;
+  }
+
   return (
     <div className="min-h-screen bg-[#FDFBF7] text-[#3D3A30] flex flex-col selection:bg-[#5A5A40] selection:text-white font-sans">
       
@@ -51,6 +93,7 @@ export default function App() {
         onOpenAttendeeModal={handleOpenAttendeeModal}
         onScrollToVendorBooking={scrollToVendorBooking}
         onOpenVendorModal={() => handleOpenVendorModal('tent-10x10')}
+        onNavigateToAdmin={navigateToAdmin}
       />
 
       {/* Main Content Sections */}
@@ -105,6 +148,7 @@ export default function App() {
         onScrollToVendorBooking={scrollToVendorBooking}
         onOpenAttendeeModal={handleOpenAttendeeModal}
         onOpenVendorModal={() => handleOpenVendorModal('tent-10x10')}
+        onNavigateToAdmin={navigateToAdmin}
       />
 
       {/* Attendee RSVP / Free Ticket Pass Modal */}
@@ -142,3 +186,4 @@ export default function App() {
     </div>
   );
 }
+

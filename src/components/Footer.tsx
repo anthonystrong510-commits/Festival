@@ -6,9 +6,15 @@ interface FooterProps {
   onScrollToVendorBooking: () => void;
   onOpenAttendeeModal: () => void;
   onOpenVendorModal?: () => void;
+  onNavigateToAdmin?: () => void;
 }
 
-export const Footer: React.FC<FooterProps> = ({ onScrollToVendorBooking, onOpenAttendeeModal, onOpenVendorModal }) => {
+export const Footer: React.FC<FooterProps> = ({ 
+  onScrollToVendorBooking, 
+  onOpenAttendeeModal, 
+  onOpenVendorModal,
+  onNavigateToAdmin
+}) => {
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -122,11 +128,29 @@ export const Footer: React.FC<FooterProps> = ({ onScrollToVendorBooking, onOpenA
             &copy; {new Date().getFullYear()} {EVENT_CONFIG.name}. All rights reserved.
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 flex-wrap">
             <a href="#about" className="hover:text-[#5A5A40] transition-colors">About</a>
             <a href="#experience" className="hover:text-[#5A5A40] transition-colors">Experience</a>
             <a href="#schedule" className="hover:text-[#5A5A40] transition-colors">Schedule</a>
             <a href="#faq" className="hover:text-[#5A5A40] transition-colors">Policies</a>
+            {onNavigateToAdmin ? (
+              <button
+                onClick={onNavigateToAdmin}
+                className="inline-flex items-center gap-1 text-[11px] font-bold text-[#5A5A40] hover:text-[#3D3A30] px-2.5 py-1 rounded-full bg-[#EAE4D6] hover:bg-[#E0D9C8] transition-colors"
+                title="Access Festival Organizer Admin Panel"
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>KingAdmin Portal</span>
+              </button>
+            ) : (
+              <a
+                href="/kingadmin"
+                className="inline-flex items-center gap-1 text-[11px] font-bold text-[#5A5A40] hover:text-[#3D3A30] px-2.5 py-1 rounded-full bg-[#EAE4D6] hover:bg-[#E0D9C8] transition-colors"
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>KingAdmin Portal</span>
+              </a>
+            )}
             <button
               onClick={scrollToTop}
               className="p-2 rounded-full bg-white text-[#5A5A40] hover:text-white hover:bg-[#5A5A40] border border-[#E8E2D6] transition-colors ml-2"

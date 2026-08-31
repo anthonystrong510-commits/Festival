@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Mail, 
   Sparkles, 
@@ -19,7 +19,7 @@ import {
   Sliders,
   ExternalLink
 } from 'lucide-react';
-import { EmailTemplateData, AntiSpamAudit } from '../../../types';
+import { EmailTemplateData, AntiSpamAudit, SmtpConfigData, FestivalConfigData } from '../../../types';
 import { DEFAULT_EMAIL_TEMPLATES } from '../../../data/defaultEmailTemplates';
 import { auditAntiSpamQuality, interpolateTemplate } from '../../../lib/antiSpamUtils';
 import { sendAutomatedEmail } from '../../../lib/emailService';
@@ -28,42 +28,56 @@ interface EmailCenterTabProps {
   templates: EmailTemplateData[];
   onSaveTemplate: (template: EmailTemplateData) => void;
   onResetTemplates: () => void;
+  smtpConfig?: SmtpConfigData;
+  festivalConfig?: FestivalConfigData;
 }
 
 export function EmailCenterTab({
   templates,
   onSaveTemplate,
-  onResetTemplates
+  onResetTemplates,
+  smtpConfig,
+  festivalConfig
 }: EmailCenterTabProps) {
-  const currentTemplates = templates.length > 0 ? templates : DEFAULT_EMAIL_TEMPLATES;
+  const currentTemplates = templates && templates.length > 0 ? templates : DEFAULT_EMAIL_TEMPLATES;
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>(currentTemplates[0]?.id || 'vendor_app_received');
   
   // Working draft state
   const activeTemplate = useMemo(() => {
-    return currentTemplates.find(t => t.id === selectedTemplateId) || currentTemplates[0];
+    return currentTemplates.find(t => t.id === selectedTemplateId) || currentTemplates[0] || DEFAULT_EMAIL_TEMPLATES[0];
   }, [currentTemplates, selectedTemplateId]);
 
   const [draftSubject, setDraftSubject] = useState(activeTemplate?.subject || '');
   const [draftHtml, setDraftHtml] = useState(activeTemplate?.htmlBody || '');
   const [draftPlainText, setDraftPlainText] = useState(activeTemplate?.plainTextBody || '');
-  const [draftPreheader, setDraftPreheader] = useState(activeTemplate?.preheader || '');
+  const [draftPreheader, setDraftPreheader] = useState(activeTemplate?.previewText || '');
   
   const [editorMode, setEditorMode] = useState<'html' | 'plaintext'>('html');
   const [previewDevice, setPreviewDevice] = useState<'desktop' | 'mobile'>('desktop');
   const [copiedVariable, setCopiedVariable] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
+  // Synchronize draft fields when active template updates
+  useEffect(() => {
+    if (activeTemplate) {
+      setDraftSubject(activeTemplate.subject || '');
+      setDraftHtml(activeTemplate.htmlBody || '');
+      setDraftPlainText(activeTemplate.plainTextBody || '');
+      setDraftPreheader(activeTemplate.previewText || '');
+    }
+  }, [activeTemplate?.id, activeTemplate?.updatedAt]);
+
   // Test send simulator modal state
   const [isTestModalOpen, setIsTestModalOpen] = useState(false);
-  const [testEmailAddress, setTestEmailAddress] = useState('organizer@festivalmarket.org');
+  const [testEmailAddress, setTestEmailAddress] = useState(smtpConfig?.fromEmail || 'organizer@festivalmarket.org');
   const [testSendStatus, setTestSendStatus] = useState<'idle' | 'sending' | 'sent'>('idle');
 
   // When selected template changes, update working draft
   const handleSelectTemplate = (tmpl: EmailTemplateData) => {
     setSelectedTemplateId(tmpl.id);
-    setDraftSubject(tmpl.subject);
-    setDraftHtml(tmpl.htmlBody);
-    setDraftPlainText(tmpl.plainTextBody);
+    setDraftSubject(tmpl.subject || '');
+    setDraftHtml(tmpl.htmlBody || '');
+    setDraftPlainText(tmpl.plainTextBody || '');
     setDraftPreheader(tmpl.previewText || '');
   };
 
@@ -138,7 +152,9 @@ export function EmailCenterTab({
           htmlBody: draftHtml,
           plainTextBody: draftPlainText,
           previewText: draftPreheader
-        }
+        },
+        festivalConfig,
+        smtpConfig
       });
       setTestSendStatus('sent');
       setTimeout(() => {
@@ -175,6 +191,16 @@ export function EmailCenterTab({
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={onResetTemplates}
+            className="px-3 py-2 rounded-xl bg-[#F7F5EE] hover:bg-[#EAE4D6] text-[#7A7566] hover:text-[#3D3A30] border border-[#E8E2D6] text-xs font-bold flex items-center gap-1.5 transition-colors"
+            title="Reload default festival email templates"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>Reset Defaults</span>
+          </button>
+
           <button
             onClick={() => setIsTestModalOpen(true)}
             className="px-3.5 py-2 rounded-xl bg-[#F7F5EE] hover:bg-[#EAE4D6] text-[#5A5A40] border border-[#E8E2D6] text-xs font-bold flex items-center gap-1.5 transition-colors"
@@ -242,7 +268,7 @@ export function EmailCenterTab({
         </div>
 
         <div className="flex flex-wrap gap-1.5">
-          {activeTemplate.variables.map((v) => (
+          {(activeTemplate.dynamicVariables || (activeTemplate as any).variables || []).map((v: string) => (
             <button
               key={v}
               onClick={() => handleCopyVar(v)}
@@ -490,7 +516,7 @@ export function EmailCenterTab({
               </div>
 
               <div className="p-3 rounded-xl bg-[#F7F5EE] border border-[#E8E2D6] space-y-1 text-[11px] text-[#6B6658]">
-                <div><strong>Active Template:</strong> {activeTemplate.name}</div>
+                <div><strong>Active Template:</strong> {activeTemplate?.title || activeTemplate?.key || 'Selected Template'}</div>
                 <div><strong>Anti-Spam Score:</strong> {antiSpamAudit.score}/100</div>
                 <div><strong>DKIM / SPF Alignment:</strong> Simulated Pass</div>
               </div>

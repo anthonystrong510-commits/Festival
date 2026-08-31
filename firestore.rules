@@ -65,14 +65,16 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // Email Templates (Admin only)
+    // Email Templates (Public read for automated delivery, admin write)
     match /email_templates/{templateId} {
-      allow read, write: if isAdmin();
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
-    // SMTP Configuration (Admin only)
+    // SMTP Configuration (Public read for sender details, admin write)
     match /email_config/{configId} {
-      allow read, write: if isAdmin();
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
     // Outbound Email Logs

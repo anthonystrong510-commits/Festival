@@ -281,6 +281,42 @@ export async function seedDefaultEmailTemplates(): Promise<void> {
   }
 }
 
+export async function getEmailTemplateByKey(keyOrId: string): Promise<EmailTemplateData | null> {
+  try {
+    const snap = await getDoc(doc(db, 'email_templates', keyOrId));
+    if (snap.exists()) {
+      return { id: snap.id, ...(snap.data() as EmailTemplateData) };
+    }
+  } catch (err) {
+    console.warn('Could not fetch template from Firestore, using memory fallback:', err);
+  }
+  return DEFAULT_EMAIL_TEMPLATES.find(t => t.id === keyOrId || t.key === keyOrId) || null;
+}
+
+export async function getSmtpConfigOnce(): Promise<SmtpConfigData> {
+  try {
+    const snap = await getDoc(doc(db, 'email_config', 'smtp_settings'));
+    if (snap.exists()) {
+      return { id: snap.id, ...(snap.data() as SmtpConfigData) };
+    }
+  } catch (err) {
+    console.warn('Could not fetch SMTP settings from Firestore, using memory fallback:', err);
+  }
+  return DEFAULT_SMTP_CONFIG;
+}
+
+export async function getFestivalConfigOnce(): Promise<FestivalConfigData> {
+  try {
+    const snap = await getDoc(doc(db, 'festival_config', 'main_event'));
+    if (snap.exists()) {
+      return { id: snap.id, ...(snap.data() as FestivalConfigData) };
+    }
+  } catch (err) {
+    console.warn('Could not fetch Festival config from Firestore, using memory fallback:', err);
+  }
+  return DEFAULT_FESTIVAL_CONFIG;
+}
+
 // 7. SMTP Settings API
 export const DEFAULT_SMTP_CONFIG: SmtpConfigData = {
   id: 'main_smtp',

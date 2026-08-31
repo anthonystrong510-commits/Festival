@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Server, 
   ShieldCheck, 
@@ -31,6 +31,12 @@ export function SmtpConfigTab({ config, onSaveConfig }: SmtpConfigTabProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (config) {
+      setForm({ ...config });
+    }
+  }, [config]);
 
   // Diagnostic Test State
   const [isTesting, setIsTesting] = useState(false);

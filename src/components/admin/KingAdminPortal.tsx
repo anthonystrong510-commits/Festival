@@ -353,6 +353,8 @@ export function KingAdminPortal({ onExitAdmin }: KingAdminPortalProps) {
                 templates={emailTemplates}
                 onSaveTemplate={(tmpl) => saveEmailTemplate(tmpl)}
                 onResetTemplates={seedDefaultEmailTemplates}
+                smtpConfig={smtpConfig}
+                festivalConfig={festivalConfig}
               />
             )}
 

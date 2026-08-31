@@ -8,7 +8,14 @@ import {
 } from '../types';
 import { interpolateTemplate, calculateAntiSpamScore } from './antiSpamUtils';
 import { DEFAULT_EMAIL_TEMPLATES } from '../data/defaultEmailTemplates';
-import { logOutboundEmail, DEFAULT_FESTIVAL_CONFIG, DEFAULT_SMTP_CONFIG } from './firebase';
+import { 
+  logOutboundEmail, 
+  DEFAULT_FESTIVAL_CONFIG, 
+  DEFAULT_SMTP_CONFIG,
+  getSmtpConfigOnce,
+  getFestivalConfigOnce,
+  getEmailTemplateByKey
+} from './firebase';
 
 export interface SendEmailOptions {
   recipientEmail: string;
@@ -38,27 +45,40 @@ export interface SendEmailResult {
  * and logs to Firestore for real-time admin monitoring.
  */
 export async function sendAutomatedEmail(options: SendEmailOptions): Promise<SendEmailResult> {
-  const {
+  let {
     recipientEmail,
     recipientName,
     templateKey,
     variables,
     customTemplate,
-    festivalConfig = DEFAULT_FESTIVAL_CONFIG,
-    smtpConfig = DEFAULT_SMTP_CONFIG,
+    festivalConfig,
+    smtpConfig,
     meta = {}
   } = options;
 
-  const template = customTemplate || 
-    DEFAULT_EMAIL_TEMPLATES.find(t => t.key === templateKey) || 
-    DEFAULT_EMAIL_TEMPLATES[0];
+  // Resolve active SMTP settings from Firestore if not explicitly passed
+  if (!smtpConfig) {
+    smtpConfig = await getSmtpConfigOnce();
+  }
+
+  // Resolve active Festival Configuration from Firestore if not explicitly passed
+  if (!festivalConfig) {
+    festivalConfig = await getFestivalConfigOnce();
+  }
+
+  // Resolve active Template from Firestore if not explicitly passed
+  let template = customTemplate;
+  if (!template) {
+    const fetched = await getEmailTemplateByKey(templateKey);
+    template = fetched || DEFAULT_EMAIL_TEMPLATES.find(t => t.key === templateKey) || DEFAULT_EMAIL_TEMPLATES[0];
+  }
 
   // Merge default global variables with passed variables
   const mergedVariables: Record<string, string | number> = {
-    festival_name: festivalConfig.name || 'Columbia Festival Market',
-    location: festivalConfig.address || 'Columbia Event Grounds, Columbia, SC',
-    venue_name: festivalConfig.venueName || 'Columbia Event Grounds',
-    contact_email: smtpConfig.fromEmail || 'organizer@columbiamarket.org',
+    festival_name: festivalConfig?.name || 'Columbia Festival Market',
+    location: festivalConfig?.address || 'Columbia Event Grounds, Columbia, SC',
+    venue_name: festivalConfig?.venueName || 'Columbia Event Grounds',
+    contact_email: smtpConfig?.fromEmail || 'organizer@columbiamarket.org',
     current_year: new Date().getFullYear(),
     recipient_name: recipientName,
     ...variables
@@ -96,7 +116,10 @@ export async function sendAutomatedEmail(options: SendEmailOptions): Promise<Sen
       fromEmail: smtpConfig.fromEmail,
       fromName: smtpConfig.fromName,
       host: smtpConfig.host,
-      smtpEnabled: smtpConfig.isEnabled
+      smtpEnabled: smtpConfig.isEnabled,
+      smtpPort: smtpConfig.port,
+      smtpUsername: smtpConfig.username,
+      spfDnsRecord: smtpConfig.spfRecord
     }
   };
 

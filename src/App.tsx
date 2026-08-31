@@ -13,8 +13,9 @@ import { AttendeeRsvpModal } from './components/AttendeeRsvpModal';
 import { VendorApplicationModal } from './components/VendorApplicationModal';
 import { Footer } from './components/Footer';
 import { KingAdminPortal } from './components/admin/KingAdminPortal';
-import { Store, Ticket, Compass } from 'lucide-react';
+import { Store, Ticket } from 'lucide-react';
 import { BoothId } from './types';
+import { updateDocumentHead } from './lib/headManager';
 
 export default function App() {
   const [isAdminView, setIsAdminView] = useState(() => {
@@ -28,6 +29,35 @@ export default function App() {
   const [vendorModalOpen, setVendorModalOpen] = useState(false);
   const [modalBoothId, setModalBoothId] = useState<BoothId>('tent-10x10');
   const [modalDays, setModalDays] = useState<Array<'fri' | 'sat' | 'sun'>>(['fri', 'sat', 'sun']);
+
+  // Dynamic Document Head / SEO Updates for public and admin navigation
+  useEffect(() => {
+    if (isAdminView) {
+      updateDocumentHead({
+        title: 'KingAdmin Operations Suite | Community Vendor Marketplace & Festival Expo',
+        description: 'Secure administrator control center for managing vendor applications, booth space maps, attendee passes, anti-spam email templates, and SMTP deliverability.',
+        canonicalPath: '/kingadmin',
+        noIndex: true
+      });
+    } else {
+      updateDocumentHead({
+        title: 'Community Vendor Marketplace & Festival Expo | Artisan, Food & Music Showcase',
+        description: 'Join us for a 3-day premier community marketplace bringing together artisan makers, farmers, food trucks, craft beverage creators, and live entertainment. Free passes available.',
+        canonicalPath: '/',
+        noIndex: false,
+        keywords: [
+          'community marketplace',
+          'artisan craft festival',
+          'vendor application',
+          'food truck rally',
+          'columbia festival expo',
+          'outdoor farmers market',
+          'local business showcase',
+          'live music festival'
+        ]
+      });
+    }
+  }, [isAdminView]);
 
   // Sync URL changes and popstate (e.g. Back button or Direct URL input)
   useEffect(() => {

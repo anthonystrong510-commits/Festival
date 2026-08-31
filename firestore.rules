@@ -77,6 +77,31 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Payment & Crypto Configuration (Public read for checkout crypto addresses, admin write)
+    match /payment_config/{configId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Invoices with Checkout & Crypto Payment Tracking
+    match /invoices/{invoiceId} {
+      allow read: if true;
+      allow create: if isAdmin() || (
+        isValidId(invoiceId) &&
+        request.resource.data.invoiceNumber is string &&
+        request.resource.data.recipientEmail is string &&
+        request.resource.data.totalAmount is number &&
+        request.resource.data.status is string
+      );
+      allow update: if isAdmin() || (
+        // Allow vendor to submit payment txHash / receipt proof
+        resource.data.id == invoiceId &&
+        request.resource.data.invoiceNumber == resource.data.invoiceNumber &&
+        request.resource.data.totalAmount == resource.data.totalAmount
+      );
+      allow delete: if isAdmin();
+    }
+
     // Outbound Email Logs
     match /outbound_email_logs/{logId} {
       allow create: if isValidId(logId) &&

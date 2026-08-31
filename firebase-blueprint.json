@@ -456,6 +456,196 @@
         }
       },
       "required": ["recipientEmail", "subject", "status", "sentAt"]
+    },
+    "PaymentConfig": {
+      "title": "PaymentConfig",
+      "description": "Festival payment gateway configuration including sponsor crypto (Kraken, CashApp) and on-chain addresses (USDT, ETH, BTC).",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "usdtTrc20": {
+          "type": "string",
+          "maxLength": 150
+        },
+        "usdtErc20": {
+          "type": "string",
+          "maxLength": 150
+        },
+        "usdtSolana": {
+          "type": "string",
+          "maxLength": 150
+        },
+        "ethereumAddress": {
+          "type": "string",
+          "maxLength": 150
+        },
+        "ethereumEns": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "bitcoinAddress": {
+          "type": "string",
+          "maxLength": 150
+        },
+        "bitcoinLightning": {
+          "type": "string",
+          "maxLength": 150
+        },
+        "cashAppCashtag": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "cashAppBtcAddress": {
+          "type": "string",
+          "maxLength": 150
+        },
+        "cashAppEnabled": {
+          "type": "boolean"
+        },
+        "krakenPayId": {
+          "type": "string",
+          "maxLength": 150
+        },
+        "krakenDepositAddress": {
+          "type": "string",
+          "maxLength": 150
+        },
+        "krakenSponsorBadgeEnabled": {
+          "type": "boolean"
+        },
+        "bankName": {
+          "type": "string",
+          "maxLength": 150
+        },
+        "bankAccountName": {
+          "type": "string",
+          "maxLength": 150
+        },
+        "bankAccountNumber": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "bankRoutingNumber": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "bankSwiftBic": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "zelleHandle": {
+          "type": "string",
+          "maxLength": 150
+        },
+        "paymentInstructions": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "updatedAt": {
+          "type": "string"
+        }
+      },
+      "required": ["updatedAt"]
+    },
+    "Invoice": {
+      "title": "Invoice",
+      "description": "Itemized payment invoice sent to vendor or sponsor with direct checkout link and crypto payment options.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "invoiceNumber": {
+          "type": "string",
+          "maxLength": 50
+        },
+        "vendorApplicationId": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "recipientBusinessName": {
+          "type": "string",
+          "maxLength": 150
+        },
+        "recipientContactName": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "recipientEmail": {
+          "type": "string",
+          "format": "email",
+          "maxLength": 150
+        },
+        "recipientPhone": {
+          "type": "string",
+          "maxLength": 50
+        },
+        "recipientAddress": {
+          "type": "string",
+          "maxLength": 250
+        },
+        "issueDate": {
+          "type": "string"
+        },
+        "dueDate": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["draft", "sent", "paid", "under_review", "overdue", "cancelled"]
+        },
+        "items": {
+          "type": "array"
+        },
+        "subtotal": {
+          "type": "number"
+        },
+        "discountAmount": {
+          "type": "number"
+        },
+        "taxAmount": {
+          "type": "number"
+        },
+        "totalAmount": {
+          "type": "number"
+        },
+        "paidAmount": {
+          "type": "number"
+        },
+        "currency": {
+          "type": "string",
+          "maxLength": 10
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 1500
+        },
+        "terms": {
+          "type": "string",
+          "maxLength": 1500
+        },
+        "cryptoAddresses": {
+          "type": "object"
+        },
+        "paymentDetailsSubmitted": {
+          "type": "object"
+        },
+        "sentAt": {
+          "type": "string"
+        },
+        "paidAt": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string"
+        },
+        "updatedAt": {
+          "type": "string"
+        }
+      },
+      "required": ["invoiceNumber", "recipientEmail", "totalAmount", "status", "issueDate", "dueDate", "createdAt"]
     }
   },
   "firestore": {
@@ -478,6 +668,14 @@
     "/email_config/{configId}": {
       "schema": "SmtpConfig",
       "description": "SMTP and anti-spam deliverability configurations."
+    },
+    "/payment_config/{configId}": {
+      "schema": "PaymentConfig",
+      "description": "Crypto addresses (USDT, ETH, BTC) and sponsor gateways (Kraken, CashApp)."
+    },
+    "/invoices/{invoiceId}": {
+      "schema": "Invoice",
+      "description": "Invoices with itemized line items, checkout links, and crypto payment options."
     },
     "/outbound_email_logs/{logId}": {
       "schema": "OutboundEmailLog",

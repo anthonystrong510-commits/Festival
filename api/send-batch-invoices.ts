@@ -92,43 +92,44 @@ export default async function handler(req: any, res: any) {
     return res.status(405).json({ success: false, error: 'Method Not Allowed' });
   }
 
-  let body = req.body;
-  if (typeof body === 'string') {
-    try {
-      body = JSON.parse(body);
-    } catch {
-      // already parsed or raw
+  try {
+    let body = req.body;
+    if (typeof body === 'string') {
+      try {
+        body = JSON.parse(body);
+      } catch {
+        // already parsed or raw
+      }
     }
-  }
 
-  const { invoices, smtpConfig, festivalConfig } = body || {};
-  if (!Array.isArray(invoices) || invoices.length === 0) {
-    return res.status(400).json({ success: false, error: 'No invoices provided in payload.' });
-  }
+    const { invoices, smtpConfig, festivalConfig } = body || {};
+    if (!Array.isArray(invoices) || invoices.length === 0) {
+      return res.status(400).json({ success: false, error: 'No invoices provided in payload.' });
+    }
 
-  const results: any[] = [];
-  const creds = resolveSmtpCredentials(smtpConfig);
-  const festName = creds.fromName || festivalConfig?.name || 'Columbia Community Festival';
-  const festAddress = festivalConfig?.address || '1200 Main Street, Columbia, SC 29201';
-  const fromHeader = `"${festName}" <${creds.fromEmail}>`;
+    const results: any[] = [];
+    const creds = resolveSmtpCredentials(smtpConfig);
+    const festName = creds.fromName || festivalConfig?.name || 'Columbia Community Festival';
+    const festAddress = festivalConfig?.address || '1200 Main Street, Columbia, SC 29201';
+    const fromHeader = `"${festName}" <${creds.fromEmail}>`;
 
-  for (const inv of invoices) {
-    try {
-      const checkoutLink = inv.checkoutUrl || `https://columbiamarket.org/?invoice=${inv.id}`;
-      const unsubUrl = `https://columbiamarket.org/?unsubscribe=${encodeURIComponent(inv.recipientEmail)}&scope=invoice`;
-      const subject = `Invoice ${inv.invoiceNumber} - ${festName} Space Reservation`;
+    for (const inv of invoices) {
+      try {
+        const checkoutLink = inv.checkoutUrl || `https://columbiamarket.org/?invoice=${inv.id}`;
+        const unsubUrl = `https://columbiamarket.org/?unsubscribe=${encodeURIComponent(inv.recipientEmail)}&scope=invoice`;
+        const subject = `Invoice ${inv.invoiceNumber} - ${festName} Space Reservation`;
 
-      const mailHeaders: Record<string, string> = {
-        'X-Mailer': 'Columbia-Festival-Engine/2.0 (Verified RFC-5322)',
-        'X-Template-Key': 'batch_invoice',
-        'List-Unsubscribe': `<mailto:${creds.replyTo}?subject=unsubscribe>, <${unsubUrl}>`,
-        'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
-        'X-Auto-Response-Suppress': 'All',
-        'Auto-Submitted': 'auto-generated',
-        'Precedence': 'bulk'
-      };
+        const mailHeaders: Record<string, string> = {
+          'X-Mailer': 'Columbia-Festival-Engine/2.0 (Verified RFC-5322)',
+          'X-Template-Key': 'batch_invoice',
+          'List-Unsubscribe': `<mailto:${creds.replyTo}?subject=unsubscribe>, <${unsubUrl}>`,
+          'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+          'X-Auto-Response-Suppress': 'All',
+          'Auto-Submitted': 'auto-generated',
+          'Precedence': 'bulk'
+        };
 
-      const htmlBody = `<!DOCTYPE html>
+        const htmlBody = `<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"></head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f7f5ee; margin: 0; padding: 24px; color: #3d3a30;">
@@ -139,7 +140,7 @@ export default async function handler(req: any, res: any) {
     </div>
     <div style="padding: 24px;">
       <p style="margin-top: 0; font-size: 14px;">Dear <strong>${inv.recipientContactName || 'Vendor'}</strong> (${inv.recipientBusinessName}),</p>
-      <p style="font-size: 13px; color: #555;">Your vendor space invoice has been generated for <strong>$${Number(inv.totalAmount).toFixed(2)} USD</strong> (Due: ${inv.dueDate}).</p>
+      <p style="font-size: 13px; color: #555;">Your vendor space invoice has been generated for <strong>$${(Number(inv.totalAmount) || 0).toFixed(2)} USD</strong> (Due: ${inv.dueDate}).</p>
       <div style="text-align: center; margin: 24px 0;">
         <a href="${checkoutLink}" style="display: inline-block; background-color: #5A5A40; color: #ffffff; text-decoration: none; padding: 12px 28px; border-radius: 8px; font-weight: bold; font-size: 14px;">
           Open Payment Checkout →
@@ -154,27 +155,34 @@ export default async function handler(req: any, res: any) {
 </body>
 </html>`;
 
-      results.push({
-        id: inv.id,
-        invoiceNumber: inv.invoiceNumber,
-        recipientEmail: inv.recipientEmail,
-        status: 'sent',
-        sentAt: new Date().toISOString()
-      });
-    } catch (err: any) {
-      results.push({
-        id: inv.id,
-        invoiceNumber: inv.invoiceNumber,
-        recipientEmail: inv.recipientEmail,
-        status: 'failed',
-        error: err.message
-      });
+        results.push({
+          id: inv.id,
+          invoiceNumber: inv.invoiceNumber,
+          recipientEmail: inv.recipientEmail,
+          status: 'sent',
+          sentAt: new Date().toISOString()
+        });
+      } catch (err: any) {
+        results.push({
+          id: inv.id,
+          invoiceNumber: inv.invoiceNumber,
+          recipientEmail: inv.recipientEmail,
+          status: 'failed',
+          error: err.message
+        });
+      }
     }
-  }
 
-  return res.status(200).json({
-    success: true,
-    totalSent: results.filter(r => r.status === 'sent').length,
-    results
-  });
+    return res.status(200).json({
+      success: true,
+      totalSent: results.filter(r => r.status === 'sent').length,
+      results
+    });
+  } catch (error: any) {
+    console.error('Batch invoice dispatch error:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Internal server error during batch dispatch'
+    });
+  }
 }

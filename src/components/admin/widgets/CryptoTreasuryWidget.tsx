@@ -75,7 +75,7 @@ export function CryptoTreasuryWidget({ paymentConfig, onManageWallets }: CryptoT
   const fetchTreasuryBalances = async () => {
     setLoading(true);
     try {
-      const data = await safeFetchJson('/api/crypto-treasury', {
+      const data = await safeFetchJson<any>('/api/crypto-treasury', {
         method: 'POST',
         body: JSON.stringify({
           usdtTrc20: paymentConfig.usdtTrc20,
@@ -87,7 +87,37 @@ export function CryptoTreasuryWidget({ paymentConfig, onManageWallets }: CryptoT
       });
 
       if (data && data.success) {
-        setTreasury(data);
+        const rawAssets = Array.isArray(data.assets) ? data.assets : (data.data?.assets || []);
+        const normalizedAssets: CryptoTreasuryAsset[] = rawAssets.map((a: any) => {
+          const balance = Number(a.balance) || 0;
+          const priceUsd = Number(a.priceUsd ?? (a.symbol === 'ETH' ? 3480 : a.symbol === 'BTC' ? 67450 : 1.00)) || 1.00;
+          const valueUsd = Number(a.valueUsd ?? a.usdValue ?? (balance * priceUsd)) || 0;
+          return {
+            symbol: a.symbol || 'USDT',
+            name: a.name || `${a.symbol} Asset`,
+            network: a.network || 'Mainnet',
+            address: a.address || '',
+            balance,
+            priceUsd,
+            valueUsd,
+            change24h: Number(a.change24h) || 0,
+            explorerUrl: a.explorerUrl || (a.symbol === 'ETH' ? `https://etherscan.io/address/${a.address}` : a.symbol === 'BTC' ? `https://mempool.space/address/${a.address}` : `https://tronscan.org/#/address/${a.address}`)
+          };
+        });
+
+        const totalUsdValue = Number(data.totalUsdValue ?? data.totalTreasuryUsd ?? (normalizedAssets.reduce((s, a) => s + a.valueUsd, 0))) || 0;
+        const totalUsdt = Number(data.totalUsdt ?? (normalizedAssets.filter(a => a.symbol === 'USDT').reduce((s, a) => s + a.balance, 0))) || 0;
+        const totalEth = Number(data.totalEth ?? (normalizedAssets.find(a => a.symbol === 'ETH')?.balance ?? 0)) || 0;
+        const totalBtc = Number(data.totalBtc ?? (normalizedAssets.find(a => a.symbol === 'BTC')?.balance ?? 0)) || 0;
+
+        setTreasury({
+          totalUsdValue,
+          totalUsdt,
+          totalEth,
+          totalBtc,
+          lastUpdated: data.lastUpdated || new Date().toISOString(),
+          assets: normalizedAssets.length > 0 ? normalizedAssets : treasury.assets
+        });
       }
     } catch (err) {
       console.warn('Treasury fetch fallback:', err);
@@ -171,7 +201,7 @@ export function CryptoTreasuryWidget({ paymentConfig, onManageWallets }: CryptoT
           <div>
             <span className="text-[11px] font-bold uppercase tracking-wider opacity-80">Total Treasury Portfolio</span>
             <div className="text-2xl sm:text-3xl font-extrabold mt-1">
-              ${(treasury.totalUsdValue || 50980.32).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              ${(Number(treasury.totalUsdValue) || 50980.32).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
           </div>
           <div className="mt-3 pt-3 border-t border-white/20 flex items-center justify-between text-[11px] opacity-90">
@@ -194,10 +224,10 @@ export function CryptoTreasuryWidget({ paymentConfig, onManageWallets }: CryptoT
           </div>
           <div className="mt-2">
             <div className="text-xl font-bold text-[#3D3A30]">
-              {(treasury.totalUsdt || 5200).toLocaleString('en-US', { minimumFractionDigits: 2 })} <span className="text-xs font-normal text-[#7A7566]">USDT</span>
+              {(Number(treasury.totalUsdt) || 5200).toLocaleString('en-US', { minimumFractionDigits: 2 })} <span className="text-xs font-normal text-[#7A7566]">USDT</span>
             </div>
             <div className="text-xs text-[#7A7566] mt-0.5">
-              ≈ ${(treasury.totalUsdt || 5200).toLocaleString('en-US', { minimumFractionDigits: 2 })} USD
+              ≈ ${(Number(treasury.totalUsdt) || 5200).toLocaleString('en-US', { minimumFractionDigits: 2 })} USD
             </div>
           </div>
         </div>
@@ -214,10 +244,10 @@ export function CryptoTreasuryWidget({ paymentConfig, onManageWallets }: CryptoT
           </div>
           <div className="mt-2">
             <div className="text-xl font-bold text-[#3D3A30]">
-              {(treasury.totalEth || 4.85).toFixed(4)} <span className="text-xs font-normal text-[#7A7566]">ETH</span>
+              {(Number(treasury.totalEth) || 4.85).toFixed(4)} <span className="text-xs font-normal text-[#7A7566]">ETH</span>
             </div>
             <div className="text-xs text-[#7A7566] mt-0.5">
-              ≈ ${((treasury.totalEth || 4.85) * 3480).toLocaleString('en-US', { minimumFractionDigits: 2 })} USD
+              ≈ ${((Number(treasury.totalEth) || 4.85) * 3480).toLocaleString('en-US', { minimumFractionDigits: 2 })} USD
             </div>
           </div>
         </div>
@@ -234,10 +264,10 @@ export function CryptoTreasuryWidget({ paymentConfig, onManageWallets }: CryptoT
           </div>
           <div className="mt-2">
             <div className="text-xl font-bold text-[#3D3A30]">
-              {(treasury.totalBtc || 0.4285).toFixed(4)} <span className="text-xs font-normal text-[#7A7566]">BTC</span>
+              {(Number(treasury.totalBtc) || 0.4285).toFixed(4)} <span className="text-xs font-normal text-[#7A7566]">BTC</span>
             </div>
             <div className="text-xs text-[#7A7566] mt-0.5">
-              ≈ ${((treasury.totalBtc || 0.4285) * 67450).toLocaleString('en-US', { minimumFractionDigits: 2 })} USD
+              ≈ ${((Number(treasury.totalBtc) || 0.4285) * 67450).toLocaleString('en-US', { minimumFractionDigits: 2 })} USD
             </div>
           </div>
         </div>
@@ -257,7 +287,7 @@ export function CryptoTreasuryWidget({ paymentConfig, onManageWallets }: CryptoT
               </tr>
             </thead>
             <tbody className="divide-y divide-[#E8E2D6]">
-              {treasury.assets.map((asset, idx) => (
+              {(treasury.assets || []).map((asset, idx) => (
                 <tr key={idx} className="hover:bg-[#FDFBF7] transition-colors">
                   <td className="px-4 py-3.5">
                     <div className="font-bold text-[#3D3A30] flex items-center gap-1.5">
@@ -285,10 +315,10 @@ export function CryptoTreasuryWidget({ paymentConfig, onManageWallets }: CryptoT
                     </div>
                   </td>
                   <td className="px-4 py-3.5 text-right font-bold text-[#3D3A30]">
-                    {asset.balance.toLocaleString('en-US', { maximumFractionDigits: 4 })} {asset.symbol}
+                    {(Number(asset.balance) || 0).toLocaleString('en-US', { maximumFractionDigits: 4 })} {asset.symbol}
                   </td>
                   <td className="px-4 py-3.5 text-right font-bold text-emerald-800">
-                    ${asset.valueUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    ${(Number(asset.valueUsd ?? (asset as any).usdValue) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </td>
                   <td className="px-4 py-3.5 text-right">
                     <div className="flex items-center justify-end gap-1.5">

@@ -14,21 +14,31 @@ export interface ApiResponse<T = any> {
   info?: any;
   logs?: string[];
   totalTreasuryUsd?: number;
+  totalUsdValue?: number;
+  totalUsdt?: number;
+  totalEth?: number;
+  totalBtc?: number;
+  lastUpdated?: string;
   assets?: any[];
   prices?: any;
+  rawBody?: string;
+  statusCode?: number;
 }
 
 /**
  * Robust JSON fetch helper that protects against:
- * 1. Empty response bodies (e.g. 204 or premature socket close)
+ * 1. Empty response bodies & 'Unexpected end of JSON input'
  * 2. HTML SPA rewrites (e.g. Vercel static rewrites returning index.html for /api/*)
- * 3. Network timeouts and unhandled server errors
+ * 3. Network timeouts, edge function crashes, and unhandled server errors
  */
 export async function safeFetchJson<T = any>(
   url: string,
   options: RequestInit = {},
   fallbackData?: T
 ): Promise<ApiResponse<T>> {
+  let rawText = '';
+  let statusCode = 0;
+
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 18000);
@@ -45,32 +55,57 @@ export async function safeFetchJson<T = any>(
 
     const res = await fetch(url, mergedOptions);
     clearTimeout(timeoutId);
+    statusCode = res.status;
 
-    const rawText = await res.text();
-
-    // Check if the response is empty or non-JSON (like HTML from SPA router fallback)
-    const trimmed = rawText ? rawText.trim() : '';
-
-    if (!trimmed) {
-      console.warn(`[safeFetchJson] Empty response received from ${url} (status: ${res.status})`);
+    try {
+      rawText = await res.text();
+    } catch (readErr: any) {
+      console.error(`[safeFetchJson] Failed to read response stream from ${url} (HTTP ${res.status}):`, readErr);
       return {
-        success: res.ok,
-        data: fallbackData,
-        error: res.ok ? undefined : `Server returned status ${res.status} with empty body`
+        success: false,
+        statusCode: res.status,
+        error: `Failed to read server response body: ${readErr.message}`,
+        data: fallbackData
       };
     }
 
+    const trimmed = rawText ? rawText.trim() : '';
+
+    // Catch empty response bodies immediately before JSON.parse fails with 'Unexpected end of JSON input'
+    if (!trimmed) {
+      console.error(`[safeFetchJson] Empty response body received from ${url} (HTTP ${res.status})`);
+      console.error(`[safeFetchJson Raw Response]: <EMPTY_BODY>`);
+
+      if (url.includes('/send-email') || url.includes('/send-batch-invoices')) {
+        return {
+          success: false,
+          statusCode: res.status,
+          rawBody: '',
+          error: `Vercel serverless function returned an empty response (HTTP ${res.status}). Unexpected end of JSON input.`,
+          data: fallbackData
+        };
+      }
+
+      return {
+        success: res.ok,
+        statusCode: res.status,
+        rawBody: '',
+        data: fallbackData,
+        error: res.ok ? undefined : `Server returned HTTP ${res.status} with an empty response body`
+      };
+    }
+
+    // Catch HTML router fallback responses (e.g. Vercel SPA rewrite fallback)
     if (trimmed.startsWith('<') || trimmed.startsWith('<!DOCTYPE') || trimmed.startsWith('<html')) {
-      console.warn(`[safeFetchJson] HTML response detected from API route ${url} (likely SPA fallback on static host).`);
+      console.warn(`[safeFetchJson] HTML response detected from API route ${url} (HTTP ${res.status}). Raw body:`, trimmed.slice(0, 300));
       
-      // If it's the email endpoint on a pure static deployment without backend, simulate success
       if (url.includes('/send-email')) {
         return {
-          success: true,
-          messageId: `sim-static-${Date.now().toString(36)}`,
-          status: 'delivered',
-          method: 'simulated',
-          error: undefined
+          success: false,
+          statusCode: res.status,
+          rawBody: trimmed,
+          error: `Vercel edge function returned HTML index document instead of JSON (HTTP ${res.status}). Please check API route deployment.`,
+          data: fallbackData
         };
       }
 
@@ -78,6 +113,7 @@ export async function safeFetchJson<T = any>(
         return {
           success: true,
           method: 'virtual',
+          statusCode: res.status,
           messageId: `virtual-test-${Date.now()}`,
           logs: [
             '[Notice] Running on static/serverless hosting layer.',
@@ -89,17 +125,20 @@ export async function safeFetchJson<T = any>(
 
       return {
         success: false,
-        error: `API returned HTML instead of JSON. Check serverless configuration.`,
+        statusCode: res.status,
+        rawBody: trimmed,
+        error: `API endpoint returned HTML instead of JSON (HTTP ${res.status}).`,
         data: fallbackData
       };
     }
 
+    // Parse JSON response with explicit try/catch for 'Unexpected end of JSON input' or syntax errors
     try {
       const parsed = JSON.parse(trimmed);
       return {
         success: parsed.success !== undefined ? Boolean(parsed.success) : res.ok,
         data: parsed.data || parsed,
-        error: parsed.error,
+        error: parsed.error || (!res.ok ? `Server error (HTTP ${res.status})` : undefined),
         messageId: parsed.messageId,
         previewUrl: parsed.previewUrl,
         method: parsed.method,
@@ -109,34 +148,41 @@ export async function safeFetchJson<T = any>(
         info: parsed.info,
         logs: parsed.logs,
         totalTreasuryUsd: parsed.totalTreasuryUsd,
+        totalUsdValue: parsed.totalUsdValue,
+        totalUsdt: parsed.totalUsdt,
+        totalEth: parsed.totalEth,
+        totalBtc: parsed.totalBtc,
+        lastUpdated: parsed.lastUpdated,
         assets: parsed.assets,
-        prices: parsed.prices
+        prices: parsed.prices,
+        statusCode: res.status,
+        rawBody: trimmed
       };
     } catch (parseError: any) {
-      console.warn(`[safeFetchJson] JSON parse error from ${url}:`, parseError.message);
+      console.error(`[safeFetchJson] JSON parse failure from ${url} (HTTP ${res.status}):`, parseError.message);
+      console.error(`[safeFetchJson Raw Body]:`, trimmed);
+
+      const isUnexpectedEnd = parseError.message.includes('Unexpected end of JSON input') || parseError.message.includes('JSON');
       return {
         success: false,
-        error: `Invalid JSON response: ${parseError.message}`,
+        statusCode: res.status,
+        rawBody: trimmed,
+        error: isUnexpectedEnd 
+          ? `Vercel edge function error: Unexpected end of JSON input (HTTP ${res.status}). Raw response logged to console.`
+          : `Invalid JSON response: ${parseError.message}`,
         data: fallbackData
       };
     }
   } catch (netError: any) {
-    console.error(`[safeFetchJson] Network or request error from ${url}:`, netError);
-
-    // If email dispatch fails due to network, gracefully fallback so the admin can continue
-    if (url.includes('/send-email')) {
-      return {
-        success: true,
-        messageId: `offline-sim-${Date.now().toString(36)}`,
-        status: 'delivered',
-        method: 'offline',
-        error: undefined
-      };
-    }
+    console.error(`[safeFetchJson] Network or connection error from ${url}:`, netError);
 
     return {
       success: false,
-      error: netError.name === 'AbortError' ? 'Request timed out after 18 seconds.' : netError.message,
+      statusCode,
+      rawBody: rawText,
+      error: netError.name === 'AbortError' 
+        ? 'Request timed out after 18 seconds.' 
+        : `Network error: ${netError.message || 'Connection failed'}`,
       data: fallbackData
     };
   }

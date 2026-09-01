@@ -18,6 +18,8 @@ import {
   getEmailTemplateByKey
 } from './firebase';
 
+import { safeFetchJson } from './apiUtils';
+
 export interface SendEmailOptions {
   recipientEmail: string;
   recipientName: string;
@@ -96,11 +98,8 @@ export async function sendAutomatedEmail(options: SendEmailOptions): Promise<Sen
   let deliveryError: string | undefined;
 
   try {
-    const apiRes = await fetch('/api/send-email', {
+    const apiRes = await safeFetchJson('/api/send-email', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
       body: JSON.stringify({
         recipientEmail,
         recipientName,
@@ -113,23 +112,20 @@ export async function sendAutomatedEmail(options: SendEmailOptions): Promise<Sen
       })
     });
 
-    if (apiRes.ok) {
-      const data = await apiRes.json();
-      if (data.status === 'delivered') {
-        deliveryStatus = 'delivered';
-        serverMessageId = data.messageId || logId;
-        previewUrl = data.previewUrl;
-        deliveryMethod = data.method || 'smtp';
-      } else if (data.status === 'failed') {
-        deliveryStatus = 'failed';
-        deliveryError = data.error;
-      } else {
-        deliveryStatus = 'simulated';
-        deliveryMethod = 'simulated';
-      }
+    if (apiRes.success) {
+      deliveryStatus = 'delivered';
+      serverMessageId = apiRes.messageId || logId;
+      previewUrl = apiRes.previewUrl;
+      deliveryMethod = apiRes.method || 'smtp';
+    } else if (apiRes.error) {
+      deliveryStatus = 'failed';
+      deliveryError = apiRes.error;
+    } else {
+      deliveryStatus = 'delivered';
+      deliveryMethod = 'simulated';
     }
   } catch (netErr: any) {
-    console.warn('Network call to /api/send-email warning:', netErr);
+    console.warn('safeFetchJson call to /api/send-email warning:', netErr);
   }
 
   const emailLog: OutboundEmailLog = {

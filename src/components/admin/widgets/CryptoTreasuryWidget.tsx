@@ -15,6 +15,7 @@ import {
   DollarSign
 } from 'lucide-react';
 import { PaymentConfig, CryptoTreasuryOverview, CryptoTreasuryAsset } from '../../../types';
+import { safeFetchJson } from '../../../lib/apiUtils';
 import QRCode from 'qrcode';
 
 interface CryptoTreasuryWidgetProps {
@@ -74,9 +75,8 @@ export function CryptoTreasuryWidget({ paymentConfig, onManageWallets }: CryptoT
   const fetchTreasuryBalances = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/crypto-treasury', {
+      const data = await safeFetchJson('/api/crypto-treasury', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           usdtTrc20: paymentConfig.usdtTrc20,
           usdtErc20: paymentConfig.usdtErc20,
@@ -86,11 +86,8 @@ export function CryptoTreasuryWidget({ paymentConfig, onManageWallets }: CryptoT
         })
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success) {
-          setTreasury(data);
-        }
+      if (data && data.success) {
+        setTreasury(data);
       }
     } catch (err) {
       console.warn('Treasury fetch fallback:', err);

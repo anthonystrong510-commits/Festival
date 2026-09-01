@@ -189,17 +189,21 @@ export interface AntiSpamAudit {
 }
 
 export interface OutboundEmailLog {
-  id: string;
+  id?: string;
   recipientEmail: string;
   recipientName: string;
   templateKey: string;
   subject: string;
-  plainText: string;
-  htmlBody: string;
+  plainText?: string;
+  htmlBody?: string;
+  renderedHtml?: string;
+  renderedPlain?: string;
   status: 'delivered' | 'simulated' | 'failed' | 'pending';
   antiSpamScore: number;
-  sentAt: string;
+  sentAt?: string;
   previewUrl?: string;
+  method?: string;
+  error?: string;
   meta?: Record<string, any>;
 }
 
@@ -216,24 +220,49 @@ export interface SendEmailResult {
   error?: string;
 }
 
+export interface PaymentMethodsEnabled {
+  usdt: boolean;
+  ethereum: boolean;
+  bitcoin: boolean;
+  cashApp: boolean;
+  kraken?: boolean;
+  krakenPay?: boolean;
+  bankTransfer: boolean;
+}
+
+export interface InvoiceBankDetails {
+  bankName?: string;
+  bankAccountName?: string;
+  bankAccountNumber?: string;
+  bankRoutingNumber?: string;
+  bankSwiftBic?: string;
+  zelleHandle?: string;
+  paymentInstructions?: string;
+}
+
 export interface PaymentConfig {
   id?: string;
   // Stablecoin & On-chain Crypto
   usdtTrc20: string;
   usdtErc20: string;
   usdtSolana: string;
+  usdtEnabled?: boolean;
   ethereumAddress: string;
   ethereumEns?: string;
+  ethereumEnabled?: boolean;
   bitcoinAddress: string;
   bitcoinLightning?: string;
+  bitcoinEnabled?: boolean;
   // Sponsors
   cashAppCashtag: string;
   cashAppBtcAddress?: string;
   cashAppEnabled: boolean;
   krakenPayId: string;
   krakenDepositAddress?: string;
+  krakenPayEnabled?: boolean;
   krakenSponsorBadgeEnabled: boolean;
   // Traditional Rails
+  bankTransferEnabled?: boolean;
   bankName?: string;
   bankAccountName?: string;
   bankAccountNumber?: string;
@@ -304,6 +333,8 @@ export interface Invoice {
   notes?: string;
   terms?: string;
   cryptoAddresses?: InvoiceCryptoAddresses;
+  paymentMethodsEnabled?: PaymentMethodsEnabled;
+  bankDetails?: InvoiceBankDetails;
   paymentDetailsSubmitted?: InvoicePaymentSubmission;
   sentAt?: string;
   paidAt?: string;

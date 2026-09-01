@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { SmtpConfigData } from '../../../types';
 import { generateDnsSpfRecord, generateDmarcRecord } from '../../../lib/antiSpamUtils';
+import { safeFetchJson } from '../../../lib/apiUtils';
 
 interface SmtpConfigTabProps {
   config: SmtpConfigData;
@@ -112,9 +113,8 @@ export function SmtpConfigTab({ config, onSaveConfig }: SmtpConfigTabProps) {
     ]);
 
     try {
-      const res = await fetch('/api/test-smtp', {
+      const data = await safeFetchJson('/api/test-smtp', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           host: form.host,
           port: form.port,
@@ -127,7 +127,6 @@ export function SmtpConfigTab({ config, onSaveConfig }: SmtpConfigTabProps) {
         })
       });
 
-      const data = await res.json();
       if (data.logs && Array.isArray(data.logs)) {
         setTestLogs(data.logs);
       }
@@ -139,7 +138,7 @@ export function SmtpConfigTab({ config, onSaveConfig }: SmtpConfigTabProps) {
           messageId: data.messageId,
           previewUrl: data.previewUrl,
           latencyMs: data.latencyMs,
-          method: data.method || (data.isTestAccount ? 'virtual' : 'smtp')
+          method: data.method || 'smtp'
         });
       } else {
         setTestResult('failure');

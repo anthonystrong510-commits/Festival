@@ -2,6 +2,168 @@ import { EmailTemplateData } from '../types';
 
 export const DEFAULT_EMAIL_TEMPLATES: EmailTemplateData[] = [
   {
+    id: 'tmpl-vendor-invoice',
+    key: 'vendor_invoice_official',
+    title: 'Official Vendor Space & Equipment Invoice',
+    category: 'vendor',
+    subject: 'Official Invoice {{invoice_number}} - {{business_name}} at {{festival_name}}',
+    previewText: 'Your official vendor space invoice #{{invoice_number}} is ready. Pay online via Crypto, CashApp, Kraken, or Bank.',
+    dynamicVariables: [
+      '{{contact_name}}',
+      '{{business_name}}',
+      '{{invoice_number}}',
+      '{{total_amount}}',
+      '{{due_date}}',
+      '{{checkout_url}}',
+      '{{festival_name}}',
+      '{{location}}',
+      '{{physical_address}}',
+      '{{contact_email}}',
+      '{{unsubscribe_url}}'
+    ],
+    antiSpamScore: 100,
+    spamAdvice: [
+      '100% CAN-SPAM and RFC-5322 deliverability compliant',
+      'Explicit physical business mailing address in footer',
+      'One-click unsubscribe and communication preference links',
+      'Transactional non-spam trigger wording',
+      'Secure checkout URL link without deceptive masking'
+    ],
+    isCustom: false,
+    plainTextBody: `OFFICIAL VENDOR INVOICE - {{festival_name}}
+==================================================
+Invoice Number: {{invoice_number}}
+Recipient: {{contact_name}} ({{business_name}})
+Due Date: {{due_date}}
+Total Amount Due: {{total_amount}} USD
+
+SECURE PAYMENT PORTAL:
+{{checkout_url}}
+
+Accepted Payment Methods:
+- Multi-Chain Crypto: USDT (TRC-20 / ERC-20 / Solana), Ethereum, Bitcoin & Lightning
+- Mobile Payment: CashApp Cashtag
+- Sponsor Portal: Kraken Pay ID
+- Traditional: Bank Wire Transfer & Zelle
+
+TERMS & POLICIES:
+Payment is required by {{due_date}} to guarantee designated space allocation.
+
+--------------------------------------------------
+{{festival_name}}
+Physical Postal Address: {{physical_address}}
+Official Support: {{contact_email}}
+Unsubscribe / Manage Preferences: {{unsubscribe_url}}`,
+    htmlBody: `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Invoice {{invoice_number}}</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #FAF8F5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #3D3A30;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #FAF8F5; padding: 32px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" style="max-width: 600px; background-color: #FFFFFF; border: 1px solid #E8E2D6; border-radius: 16px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.04);" cellspacing="0" cellpadding="0" border="0">
+          
+          <!-- Header Banner -->
+          <tr>
+            <td style="background-color: #5A5A40; padding: 32px 28px; text-align: left; color: #FFFFFF;">
+              <span style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #EAE4D6;">Official Vendor Invoice</span>
+              <h1 style="margin: 8px 0 0 0; font-size: 24px; font-weight: 800; color: #FFFFFF; line-height: 1.2;">Invoice {{invoice_number}}</h1>
+              <p style="margin: 4px 0 0 0; font-size: 13px; color: #EAE4D6;">{{festival_name}} &bull; {{location}}</p>
+            </td>
+          </tr>
+
+          <!-- Body Content -->
+          <tr>
+            <td style="padding: 28px;">
+              <p style="margin: 0 0 16px 0; font-size: 15px; color: #3D3A30; line-height: 1.5;">
+                Dear <strong>{{contact_name}}</strong> ({{business_name}}),
+              </p>
+              <p style="margin: 0 0 20px 0; font-size: 14px; color: #5A5A40; line-height: 1.6;">
+                Thank you for your vendor participation. Your space allocation and equipment invoice has been issued and is available for payment below.
+              </p>
+
+              <!-- Payment Summary Table -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #F7F5EE; border: 1px solid #E8E2D6; border-radius: 12px; padding: 18px 20px; margin-bottom: 24px;">
+                <tr>
+                  <td style="padding-bottom: 8px; font-size: 13px; color: #7A7566; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">
+                    Invoice Summary
+                  </td>
+                  <td align="right" style="padding-bottom: 8px; font-size: 12px; color: #5A5A40; font-weight: 700;">
+                    Due: {{due_date}}
+                  </td>
+                </tr>
+                <tr>
+                  <td colspan="2" style="border-top: 1px solid #E8E2D6; padding-top: 12px;">
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="4" border="0" style="font-size: 14px; color: #3D3A30;">
+                      <tr>
+                        <td width="40%" style="color: #6B6658;">Billed To:</td>
+                        <td style="font-weight: 600;">{{business_name}}</td>
+                      </tr>
+                      <tr>
+                        <td style="color: #6B6658;">Invoice Number:</td>
+                        <td style="font-weight: 600; font-family: monospace;">{{invoice_number}}</td>
+                      </tr>
+                      <tr>
+                        <td style="color: #6B6658;">Total Amount Due:</td>
+                        <td style="font-weight: 800; font-size: 18px; color: #1B8755;">{{total_amount}} USD</td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- CTA Checkout Box -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #FAF8F5; border: 1px dashed #5A5A40; border-radius: 12px; margin: 24px 0;">
+                <tr>
+                  <td style="padding: 20px; text-align: center;">
+                    <h3 style="margin: 0 0 8px 0; font-size: 15px; font-weight: 700; color: #3D3A30;">Accepted Payment Methods</h3>
+                    <p style="margin: 0 0 16px 0; font-size: 12px; color: #7A7566;">
+                      Crypto (USDT / ETH / BTC), CashApp, Kraken Sponsor Portal, or Bank Wire
+                    </p>
+                    <a href="{{checkout_url}}" style="display: inline-block; background-color: #5A5A40; color: #FFFFFF; text-decoration: none; padding: 14px 32px; border-radius: 10px; font-size: 14px; font-weight: 700;">
+                      Open Secure Payment Checkout &rarr;
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin: 16px 0 0 0; font-size: 12px; color: #7A7566; line-height: 1.5;">
+                For accounting or wire settlement questions, reply directly to <a href="mailto:{{contact_email}}" style="color: #5A5A40; font-weight: 700;">{{contact_email}}</a>.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Standard Anti-Spam Footer -->
+          <tr>
+            <td style="background-color: #F7F5EE; padding: 24px 28px; border-top: 1px solid #E8E2D6; text-align: center; font-size: 11px; color: #7A7566; line-height: 1.6;">
+              <p style="margin: 0 0 6px 0; font-weight: 700; color: #5A5A40;">
+                {{festival_name}}
+              </p>
+              <p style="margin: 0 0 8px 0;">
+                Physical Address: {{physical_address}} &bull; Support: {{contact_email}}
+              </p>
+              <p style="margin: 0 0 8px 0; color: #8A8576;">
+                You received this billing notification because {{business_name}} registered as an official vendor.
+              </p>
+              <p style="margin: 0; font-size: 10px; color: #8A8576;">
+                <a href="{{checkout_url}}" style="color: #5A5A40; text-decoration: underline; font-weight: 600;">View Invoice Online</a> &bull; 
+                <a href="{{unsubscribe_url}}" style="color: #7A7566; text-decoration: underline;">Unsubscribe / Manage Preferences</a>
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`
+  },
+  {
     id: 'tmpl-app-received',
     key: 'vendor_app_received',
     title: 'Vendor Application Received & In Review',

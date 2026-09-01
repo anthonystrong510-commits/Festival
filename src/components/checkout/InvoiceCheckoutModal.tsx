@@ -18,8 +18,8 @@ import {
   AlertCircle,
   FileCheck
 } from 'lucide-react';
-import { Invoice, PaymentConfig, InvoicePaymentSubmission } from '../../types';
-import { submitInvoicePaymentProof, getPaymentConfig } from '../../lib/firebase';
+import { Invoice, PaymentConfig, InvoicePaymentSubmission, PaymentMethodsEnabled } from '../../types';
+import { submitInvoicePaymentProof, getPaymentConfig, DEFAULT_PAYMENT_CONFIG } from '../../lib/firebase';
 import QRCode from 'qrcode';
 
 interface InvoiceCheckoutModalProps {
@@ -29,6 +29,7 @@ interface InvoiceCheckoutModalProps {
 }
 
 export function InvoiceCheckoutModal({ invoice, onClose, onPaymentSubmitted }: InvoiceCheckoutModalProps) {
+  const [paymentConfig, setPaymentConfig] = useState<PaymentConfig>(DEFAULT_PAYMENT_CONFIG);
   const [activeMethod, setActiveMethod] = useState<'usdt' | 'eth' | 'btc' | 'cashapp' | 'kraken' | 'bank'>('usdt');
   const [usdtNetwork, setUsdtNetwork] = useState<'trc20' | 'erc20' | 'solana'>('trc20');
   
@@ -42,18 +43,71 @@ export function InvoiceCheckoutModal({ invoice, onClose, onPaymentSubmitted }: I
   const [isSubmittingProof, setIsSubmittingProof] = useState(false);
   const [proofSuccess, setProofSuccess] = useState(false);
 
+  // Load active payment configuration
+  useEffect(() => {
+    let isMounted = true;
+    getPaymentConfig().then(cfg => {
+      if (isMounted && cfg) {
+        setPaymentConfig(cfg);
+      }
+    }).catch(err => console.warn('Could not fetch latest payment config:', err));
+    return () => { isMounted = false; };
+  }, []);
+
+  // Compute method visibility from invoice flags or global paymentConfig
+  const methodsEnabled: PaymentMethodsEnabled = {
+    usdt: invoice.paymentMethodsEnabled?.usdt !== undefined ? invoice.paymentMethodsEnabled.usdt : (paymentConfig.usdtEnabled !== false),
+    ethereum: invoice.paymentMethodsEnabled?.ethereum !== undefined ? invoice.paymentMethodsEnabled.ethereum : (paymentConfig.ethereumEnabled !== false),
+    bitcoin: invoice.paymentMethodsEnabled?.bitcoin !== undefined ? invoice.paymentMethodsEnabled.bitcoin : (paymentConfig.bitcoinEnabled !== false),
+    cashApp: invoice.paymentMethodsEnabled?.cashApp !== undefined ? invoice.paymentMethodsEnabled.cashApp : (paymentConfig.cashAppEnabled !== false),
+    krakenPay: invoice.paymentMethodsEnabled?.krakenPay !== undefined ? invoice.paymentMethodsEnabled.krakenPay : (paymentConfig.krakenPayEnabled !== false),
+    bankTransfer: invoice.paymentMethodsEnabled?.bankTransfer !== undefined ? invoice.paymentMethodsEnabled.bankTransfer : (paymentConfig.bankTransferEnabled !== false)
+  };
+
+  // Ensure the active method is actually enabled
+  useEffect(() => {
+    const isCurrentActive = 
+      (activeMethod === 'usdt' && methodsEnabled.usdt) ||
+      (activeMethod === 'eth' && methodsEnabled.ethereum) ||
+      (activeMethod === 'btc' && methodsEnabled.bitcoin) ||
+      (activeMethod === 'cashapp' && methodsEnabled.cashApp) ||
+      (activeMethod === 'kraken' && methodsEnabled.krakenPay) ||
+      (activeMethod === 'bank' && methodsEnabled.bankTransfer);
+
+    if (!isCurrentActive) {
+      if (methodsEnabled.usdt) setActiveMethod('usdt');
+      else if (methodsEnabled.bankTransfer) setActiveMethod('bank');
+      else if (methodsEnabled.cashApp) setActiveMethod('cashapp');
+      else if (methodsEnabled.krakenPay) setActiveMethod('kraken');
+      else if (methodsEnabled.ethereum) setActiveMethod('eth');
+      else if (methodsEnabled.bitcoin) setActiveMethod('btc');
+    }
+  }, [methodsEnabled, activeMethod]);
+
   // Addresses from invoice or config fallback
   const crypto = invoice.cryptoAddresses || {};
   const usdtAddress = usdtNetwork === 'trc20' 
-    ? (crypto.usdtTrc20 || 'TQ9w5fGq8F3D1Xv9Rz5L2P8m7K4v9W2p1L')
+    ? (crypto.usdtTrc20 || paymentConfig.usdtTrc20 || 'TQ9w5fGq8F3D1Xv9Rz5L2P8m7K4v9W2p1L')
     : usdtNetwork === 'erc20'
-    ? (crypto.usdtErc20 || '0x71C8366420A0926793fe1fcC713be5375B09B035')
-    : (crypto.usdtSolana || '7XwK8f9Rz5L2P8m7K4v9W2p1L8F3D1Xv9Rz5L2P8m7K4');
+    ? (crypto.usdtErc20 || paymentConfig.usdtErc20 || '0x71C8366420A0926793fe1fcC713be5375B09B035')
+    : (crypto.usdtSolana || paymentConfig.usdtSolana || '7XwK8f9Rz5L2P8m7K4v9W2p1L8F3D1Xv9Rz5L2P8m7K4');
 
-  const ethAddress = crypto.ethereumAddress || '0x71C8366420A0926793fe1fcC713be5375B09B035';
-  const btcAddress = crypto.bitcoinAddress || 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh';
-  const cashAppTag = crypto.cashAppCashtag || '$ColumbiaFestival';
-  const krakenId = crypto.krakenPayId || 'KRAKEN-COLUMBIA-FEST-882';
+  const ethAddress = crypto.ethereumAddress || paymentConfig.ethereumAddress || '0x71C8366420A0926793fe1fcC713be5375B09B035';
+  const ethEns = crypto.ethereumEns || paymentConfig.ethereumEns || 'columbiafestival.eth';
+  const btcAddress = crypto.bitcoinAddress || paymentConfig.bitcoinAddress || 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh';
+  const btcLn = crypto.bitcoinLightning || paymentConfig.bitcoinLightning || 'columbiafestival@strike.me';
+  const cashAppTag = crypto.cashAppCashtag || paymentConfig.cashAppCashtag || '$ColumbiaFestival';
+  const cashAppBtc = crypto.cashAppBtcAddress || paymentConfig.cashAppBtcAddress;
+  const krakenId = crypto.krakenPayId || paymentConfig.krakenPayId || 'KRAKEN-COLUMBIA-FEST-882';
+  const krakenDeposit = crypto.krakenDepositAddress || paymentConfig.krakenDepositAddress;
+
+  const bankName = invoice.bankDetails?.bankName || paymentConfig.bankName || 'First Columbia Community Bank';
+  const bankAccountName = invoice.bankDetails?.bankAccountName || paymentConfig.bankAccountName || 'Columbia Market Association LLC';
+  const bankAccountNumber = invoice.bankDetails?.bankAccountNumber || paymentConfig.bankAccountNumber || '••••••••4892';
+  const bankRoutingNumber = invoice.bankDetails?.bankRoutingNumber || paymentConfig.bankRoutingNumber || '121000358';
+  const bankSwiftBic = invoice.bankDetails?.bankSwiftBic || paymentConfig.bankSwiftBic || 'FCBKUS33';
+  const zelleHandle = invoice.bankDetails?.zelleHandle || paymentConfig.zelleHandle || 'treasury@columbiamarket.org';
+  const paymentInstructions = invoice.bankDetails?.paymentInstructions || paymentConfig.paymentInstructions || 'Please include your Invoice # in the transaction memo or note.';
 
   // Get active address for QR code
   const currentAddressToDisplay = () => {
@@ -61,8 +115,8 @@ export function InvoiceCheckoutModal({ invoice, onClose, onPaymentSubmitted }: I
       case 'usdt': return usdtAddress;
       case 'eth': return ethAddress;
       case 'btc': return btcAddress;
-      case 'cashapp': return crypto.cashAppBtcAddress || btcAddress;
-      case 'kraken': return crypto.krakenDepositAddress || ethAddress;
+      case 'cashapp': return cashAppBtc || btcAddress;
+      case 'kraken': return krakenDeposit || ethAddress;
       default: return '';
     }
   };
@@ -78,7 +132,7 @@ export function InvoiceCheckoutModal({ invoice, onClose, onPaymentSubmitted }: I
         .then(url => setQrCodeUrl(url))
         .catch(err => console.error('QR generation failed:', err));
     }
-  }, [activeMethod, usdtNetwork, invoice]);
+  }, [activeMethod, usdtNetwork, invoice, paymentConfig]);
 
   const handleCopy = (text: string, key: string) => {
     navigator.clipboard.writeText(text);
@@ -155,7 +209,7 @@ export function InvoiceCheckoutModal({ invoice, onClose, onPaymentSubmitted }: I
             <button
               type="button"
               onClick={() => window.print()}
-              className="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors"
+              className="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
               title="Print Receipt"
             >
               <Printer className="w-4 h-4" />
@@ -164,7 +218,7 @@ export function InvoiceCheckoutModal({ invoice, onClose, onPaymentSubmitted }: I
             <button
               type="button"
               onClick={onClose}
-              className="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors"
+              className="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
@@ -239,80 +293,124 @@ export function InvoiceCheckoutModal({ invoice, onClose, onPaymentSubmitted }: I
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-[#E8E2D6]">
                 <div className="flex items-center gap-2">
                   <Coins className="w-5 h-5 text-[#5A5A40]" />
-                  <h3 className="font-bold text-sm text-[#3D3A30]">Select Instant Payment Method</h3>
+                  <h3 className="font-bold text-sm text-[#3D3A30]">Select Payment Method</h3>
                 </div>
-                <div className="flex items-center gap-1 text-[11px] font-bold text-purple-800 bg-purple-50 px-2.5 py-1 rounded-full border border-purple-200">
-                  <Sparkles className="w-3.5 h-3.5" /> Sponsor Supported
-                </div>
+                {methodsEnabled.krakenPay && (
+                  <div className="flex items-center gap-1 text-[11px] font-bold text-purple-800 bg-purple-50 px-2.5 py-1 rounded-full border border-purple-200">
+                    <Sparkles className="w-3.5 h-3.5" /> Sponsor Supported
+                  </div>
+                )}
               </div>
 
-              {/* Payment Methods Tabs */}
-              <div className="grid grid-cols-2 sm:grid-cols-6 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setActiveMethod('usdt')}
-                  className={`p-3 rounded-xl border text-center transition-all flex flex-col items-center gap-1.5 ${activeMethod === 'usdt' ? 'bg-[#5A5A40] text-white border-[#5A5A40] shadow-xs' : 'bg-[#FAF8F5] text-[#3D3A30] border-[#E8E2D6] hover:bg-[#F0EBE0]'}`}
-                >
-                  <span className="w-3 h-3 rounded-full bg-teal-400"></span>
-                  <span className="text-xs font-bold">USDT Tether</span>
-                  <span className="text-[10px] opacity-80">Multi-Chain</span>
-                </button>
+              {/* Payment Methods Tabs (Filtering out any method disabled by Admin) */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
+                {/* 1. Bank Wire */}
+                {methodsEnabled.bankTransfer && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveMethod('bank')}
+                    className={`p-3 rounded-xl border text-center transition-all flex flex-col items-center gap-1.5 cursor-pointer ${
+                      activeMethod === 'bank'
+                        ? 'bg-[#5A5A40] text-white border-[#5A5A40] shadow-xs'
+                        : 'bg-[#FAF8F5] text-[#3D3A30] border-[#E8E2D6] hover:bg-[#F0EBE0]'
+                    }`}
+                  >
+                    <Building className="w-3.5 h-3.5 text-[#7A7566]" />
+                    <span className="text-xs font-bold">Bank Wire</span>
+                    <span className="text-[10px] opacity-80">Routing/Zelle</span>
+                  </button>
+                )}
 
-                <button
-                  type="button"
-                  onClick={() => setActiveMethod('eth')}
-                  className={`p-3 rounded-xl border text-center transition-all flex flex-col items-center gap-1.5 ${activeMethod === 'eth' ? 'bg-[#5A5A40] text-white border-[#5A5A40] shadow-xs' : 'bg-[#FAF8F5] text-[#3D3A30] border-[#E8E2D6] hover:bg-[#F0EBE0]'}`}
-                >
-                  <span className="w-3 h-3 rounded-full bg-indigo-400"></span>
-                  <span className="text-xs font-bold">Ethereum</span>
-                  <span className="text-[10px] opacity-80">ETH & ENS</span>
-                </button>
+                {/* 2. CashApp */}
+                {methodsEnabled.cashApp && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveMethod('cashapp')}
+                    className={`p-3 rounded-xl border text-center transition-all flex flex-col items-center gap-1.5 cursor-pointer ${
+                      activeMethod === 'cashapp'
+                        ? 'bg-[#5A5A40] text-white border-[#5A5A40] shadow-xs'
+                        : 'bg-[#FAF8F5] text-[#3D3A30] border-[#E8E2D6] hover:bg-[#F0EBE0]'
+                    }`}
+                  >
+                    <Smartphone className="w-3.5 h-3.5 text-emerald-500" />
+                    <span className="text-xs font-bold">CashApp</span>
+                    <span className="text-[10px] opacity-80">$Cashtag</span>
+                  </button>
+                )}
 
-                <button
-                  type="button"
-                  onClick={() => setActiveMethod('btc')}
-                  className={`p-3 rounded-xl border text-center transition-all flex flex-col items-center gap-1.5 ${activeMethod === 'btc' ? 'bg-[#5A5A40] text-white border-[#5A5A40] shadow-xs' : 'bg-[#FAF8F5] text-[#3D3A30] border-[#E8E2D6] hover:bg-[#F0EBE0]'}`}
-                >
-                  <span className="w-3 h-3 rounded-full bg-amber-400"></span>
-                  <span className="text-xs font-bold">Bitcoin</span>
-                  <span className="text-[10px] opacity-80">SegWit/Taproot</span>
-                </button>
+                {/* 3. Kraken */}
+                {methodsEnabled.krakenPay && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveMethod('kraken')}
+                    className={`p-3 rounded-xl border text-center transition-all flex flex-col items-center gap-1.5 cursor-pointer ${
+                      activeMethod === 'kraken'
+                        ? 'bg-[#5A5A40] text-white border-[#5A5A40] shadow-xs'
+                        : 'bg-[#FAF8F5] text-[#3D3A30] border-[#E8E2D6] hover:bg-[#F0EBE0]'
+                    }`}
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-purple-500" />
+                    <span className="text-xs font-bold">Kraken</span>
+                    <span className="text-[10px] opacity-80">Pay ID</span>
+                  </button>
+                )}
 
-                <button
-                  type="button"
-                  onClick={() => setActiveMethod('cashapp')}
-                  className={`p-3 rounded-xl border text-center transition-all flex flex-col items-center gap-1.5 ${activeMethod === 'cashapp' ? 'bg-[#5A5A40] text-white border-[#5A5A40] shadow-xs' : 'bg-[#FAF8F5] text-[#3D3A30] border-[#E8E2D6] hover:bg-[#F0EBE0]'}`}
-                >
-                  <Smartphone className="w-3.5 h-3.5 text-emerald-500" />
-                  <span className="text-xs font-bold">CashApp</span>
-                  <span className="text-[10px] opacity-80">$Cashtag</span>
-                </button>
+                {/* 4. USDT */}
+                {methodsEnabled.usdt && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveMethod('usdt')}
+                    className={`p-3 rounded-xl border text-center transition-all flex flex-col items-center gap-1.5 cursor-pointer ${
+                      activeMethod === 'usdt'
+                        ? 'bg-[#5A5A40] text-white border-[#5A5A40] shadow-xs'
+                        : 'bg-[#FAF8F5] text-[#3D3A30] border-[#E8E2D6] hover:bg-[#F0EBE0]'
+                    }`}
+                  >
+                    <span className="w-3 h-3 rounded-full bg-teal-400"></span>
+                    <span className="text-xs font-bold">USDT Tether</span>
+                    <span className="text-[10px] opacity-80">Multi-Chain</span>
+                  </button>
+                )}
 
-                <button
-                  type="button"
-                  onClick={() => setActiveMethod('kraken')}
-                  className={`p-3 rounded-xl border text-center transition-all flex flex-col items-center gap-1.5 ${activeMethod === 'kraken' ? 'bg-[#5A5A40] text-white border-[#5A5A40] shadow-xs' : 'bg-[#FAF8F5] text-[#3D3A30] border-[#E8E2D6] hover:bg-[#F0EBE0]'}`}
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-purple-500" />
-                  <span className="text-xs font-bold">Kraken</span>
-                  <span className="text-[10px] opacity-80">Pay ID</span>
-                </button>
+                {/* 5. ETH */}
+                {methodsEnabled.ethereum && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveMethod('eth')}
+                    className={`p-3 rounded-xl border text-center transition-all flex flex-col items-center gap-1.5 cursor-pointer ${
+                      activeMethod === 'eth'
+                        ? 'bg-[#5A5A40] text-white border-[#5A5A40] shadow-xs'
+                        : 'bg-[#FAF8F5] text-[#3D3A30] border-[#E8E2D6] hover:bg-[#F0EBE0]'
+                    }`}
+                  >
+                    <span className="w-3 h-3 rounded-full bg-indigo-400"></span>
+                    <span className="text-xs font-bold">Ethereum</span>
+                    <span className="text-[10px] opacity-80">ETH & ENS</span>
+                  </button>
+                )}
 
-                <button
-                  type="button"
-                  onClick={() => setActiveMethod('bank')}
-                  className={`p-3 rounded-xl border text-center transition-all flex flex-col items-center gap-1.5 ${activeMethod === 'bank' ? 'bg-[#5A5A40] text-white border-[#5A5A40] shadow-xs' : 'bg-[#FAF8F5] text-[#3D3A30] border-[#E8E2D6] hover:bg-[#F0EBE0]'}`}
-                >
-                  <Building className="w-3.5 h-3.5 text-[#7A7566]" />
-                  <span className="text-xs font-bold">Bank Wire</span>
-                  <span className="text-[10px] opacity-80">Routing/ACH</span>
-                </button>
+                {/* 6. BTC */}
+                {methodsEnabled.bitcoin && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveMethod('btc')}
+                    className={`p-3 rounded-xl border text-center transition-all flex flex-col items-center gap-1.5 cursor-pointer ${
+                      activeMethod === 'btc'
+                        ? 'bg-[#5A5A40] text-white border-[#5A5A40] shadow-xs'
+                        : 'bg-[#FAF8F5] text-[#3D3A30] border-[#E8E2D6] hover:bg-[#F0EBE0]'
+                    }`}
+                  >
+                    <span className="w-3 h-3 rounded-full bg-amber-400"></span>
+                    <span className="text-xs font-bold">Bitcoin</span>
+                    <span className="text-[10px] opacity-80">SegWit/Taproot</span>
+                  </button>
+                )}
               </div>
 
               {/* Method Details Box */}
               <div className="p-4 sm:p-5 rounded-2xl bg-[#FAF8F5] border border-[#E8E2D6]">
                 {/* 1. USDT */}
-                {activeMethod === 'usdt' && (
+                {activeMethod === 'usdt' && methodsEnabled.usdt && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
@@ -321,21 +419,21 @@ export function InvoiceCheckoutModal({ invoice, onClose, onPaymentSubmitted }: I
                           <button
                             type="button"
                             onClick={() => setUsdtNetwork('trc20')}
-                            className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition-colors ${usdtNetwork === 'trc20' ? 'bg-[#5A5A40] text-white' : 'text-[#7A7566]'}`}
+                            className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition-colors cursor-pointer ${usdtNetwork === 'trc20' ? 'bg-[#5A5A40] text-white' : 'text-[#7A7566]'}`}
                           >
                             TRC-20 (Tron)
                           </button>
                           <button
                             type="button"
                             onClick={() => setUsdtNetwork('erc20')}
-                            className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition-colors ${usdtNetwork === 'erc20' ? 'bg-[#5A5A40] text-white' : 'text-[#7A7566]'}`}
+                            className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition-colors cursor-pointer ${usdtNetwork === 'erc20' ? 'bg-[#5A5A40] text-white' : 'text-[#7A7566]'}`}
                           >
                             ERC-20 (ETH)
                           </button>
                           <button
                             type="button"
                             onClick={() => setUsdtNetwork('solana')}
-                            className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition-colors ${usdtNetwork === 'solana' ? 'bg-[#5A5A40] text-white' : 'text-[#7A7566]'}`}
+                            className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition-colors cursor-pointer ${usdtNetwork === 'solana' ? 'bg-[#5A5A40] text-white' : 'text-[#7A7566]'}`}
                           >
                             Solana SPL
                           </button>
@@ -350,7 +448,7 @@ export function InvoiceCheckoutModal({ invoice, onClose, onPaymentSubmitted }: I
                         <button
                           type="button"
                           onClick={() => handleCopy(usdtAddress, 'usdt')}
-                          className="mt-2 w-full py-2 bg-[#F7F5EE] hover:bg-[#EAE4D6] text-[#5A5A40] text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 transition-colors"
+                          className="mt-2 w-full py-2 bg-[#F7F5EE] hover:bg-[#EAE4D6] text-[#5A5A40] text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                         >
                           {copiedKey === 'usdt' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
                           <span>{copiedKey === 'usdt' ? 'Copied Address!' : 'Copy USDT Address'}</span>
@@ -370,13 +468,13 @@ export function InvoiceCheckoutModal({ invoice, onClose, onPaymentSubmitted }: I
                 )}
 
                 {/* 2. ETH */}
-                {activeMethod === 'eth' && (
+                {activeMethod === 'eth' && methodsEnabled.ethereum && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
                     <div className="space-y-3">
                       <div className="p-3 bg-white rounded-xl border border-[#E8E2D6] space-y-1">
                         <div className="flex justify-between items-center">
                           <span className="text-[10px] font-bold text-[#7A7566] uppercase">Ethereum Address:</span>
-                          <span className="text-[11px] font-bold text-indigo-700">columbiafestival.eth</span>
+                          <span className="text-[11px] font-bold text-indigo-700">{ethEns}</span>
                         </div>
                         <div className="font-mono text-xs text-[#3D3A30] font-semibold break-all select-all">
                           {ethAddress}
@@ -384,7 +482,7 @@ export function InvoiceCheckoutModal({ invoice, onClose, onPaymentSubmitted }: I
                         <button
                           type="button"
                           onClick={() => handleCopy(ethAddress, 'eth')}
-                          className="mt-2 w-full py-2 bg-[#F7F5EE] hover:bg-[#EAE4D6] text-[#5A5A40] text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 transition-colors"
+                          className="mt-2 w-full py-2 bg-[#F7F5EE] hover:bg-[#EAE4D6] text-[#5A5A40] text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                         >
                           {copiedKey === 'eth' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
                           <span>{copiedKey === 'eth' ? 'Copied Address!' : 'Copy ETH Address'}</span>
@@ -400,18 +498,21 @@ export function InvoiceCheckoutModal({ invoice, onClose, onPaymentSubmitted }: I
                 )}
 
                 {/* 3. BTC */}
-                {activeMethod === 'btc' && (
+                {activeMethod === 'btc' && methodsEnabled.bitcoin && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
                     <div className="space-y-3">
                       <div className="p-3 bg-white rounded-xl border border-[#E8E2D6] space-y-1">
-                        <span className="text-[10px] font-bold text-[#7A7566] uppercase">Bitcoin Native SegWit Address:</span>
+                        <div className="flex justify-between items-center">
+                          <span className="text-[10px] font-bold text-[#7A7566] uppercase">Bitcoin Address:</span>
+                          {btcLn && <span className="text-[11px] font-bold text-amber-700">{btcLn}</span>}
+                        </div>
                         <div className="font-mono text-xs text-[#3D3A30] font-semibold break-all select-all">
                           {btcAddress}
                         </div>
                         <button
                           type="button"
                           onClick={() => handleCopy(btcAddress, 'btc')}
-                          className="mt-2 w-full py-2 bg-[#F7F5EE] hover:bg-[#EAE4D6] text-[#5A5A40] text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 transition-colors"
+                          className="mt-2 w-full py-2 bg-[#F7F5EE] hover:bg-[#EAE4D6] text-[#5A5A40] text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                         >
                           {copiedKey === 'btc' ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
                           <span>{copiedKey === 'btc' ? 'Copied Address!' : 'Copy Bitcoin Address'}</span>
@@ -427,7 +528,7 @@ export function InvoiceCheckoutModal({ invoice, onClose, onPaymentSubmitted }: I
                 )}
 
                 {/* 4. CashApp */}
-                {activeMethod === 'cashapp' && (
+                {activeMethod === 'cashapp' && methodsEnabled.cashApp && (
                   <div className="space-y-4">
                     <div className="p-4 bg-emerald-50 border border-emerald-300 rounded-xl flex items-center justify-between">
                       <div>
@@ -437,7 +538,7 @@ export function InvoiceCheckoutModal({ invoice, onClose, onPaymentSubmitted }: I
                       <button
                         type="button"
                         onClick={() => handleCopy(cashAppTag, 'cashtag')}
-                        className="px-4 py-2 bg-emerald-600 text-white font-bold text-xs rounded-xl shadow-xs hover:bg-emerald-700"
+                        className="px-4 py-2 bg-emerald-600 text-white font-bold text-xs rounded-xl shadow-xs hover:bg-emerald-700 cursor-pointer"
                       >
                         {copiedKey === 'cashtag' ? 'Copied Cashtag!' : 'Copy Cashtag'}
                       </button>
@@ -449,7 +550,7 @@ export function InvoiceCheckoutModal({ invoice, onClose, onPaymentSubmitted }: I
                 )}
 
                 {/* 5. Kraken */}
-                {activeMethod === 'kraken' && (
+                {activeMethod === 'kraken' && methodsEnabled.krakenPay && (
                   <div className="space-y-4">
                     <div className="p-4 bg-purple-50 border border-purple-300 rounded-xl flex items-center justify-between">
                       <div>
@@ -459,7 +560,7 @@ export function InvoiceCheckoutModal({ invoice, onClose, onPaymentSubmitted }: I
                       <button
                         type="button"
                         onClick={() => handleCopy(krakenId, 'kraken')}
-                        className="px-4 py-2 bg-purple-600 text-white font-bold text-xs rounded-xl shadow-xs hover:bg-purple-700"
+                        className="px-4 py-2 bg-purple-600 text-white font-bold text-xs rounded-xl shadow-xs hover:bg-purple-700 cursor-pointer"
                       >
                         {copiedKey === 'kraken' ? 'Copied!' : 'Copy Pay ID'}
                       </button>
@@ -471,29 +572,43 @@ export function InvoiceCheckoutModal({ invoice, onClose, onPaymentSubmitted }: I
                 )}
 
                 {/* 6. Bank Wire */}
-                {activeMethod === 'bank' && (
+                {activeMethod === 'bank' && methodsEnabled.bankTransfer && (
                   <div className="space-y-3 text-xs">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div className="p-3 bg-white rounded-xl border border-[#E8E2D6]">
                         <span className="text-[10px] font-bold text-[#7A7566] uppercase">Bank Name:</span>
-                        <div className="font-bold text-[#3D3A30]">First Columbia Community Bank</div>
+                        <div className="font-bold text-[#3D3A30]">{bankName}</div>
                       </div>
                       <div className="p-3 bg-white rounded-xl border border-[#E8E2D6]">
                         <span className="text-[10px] font-bold text-[#7A7566] uppercase">Beneficiary:</span>
-                        <div className="font-bold text-[#3D3A30]">Columbia Market Association LLC</div>
+                        <div className="font-bold text-[#3D3A30]">{bankAccountName}</div>
                       </div>
                       <div className="p-3 bg-white rounded-xl border border-[#E8E2D6]">
                         <span className="text-[10px] font-bold text-[#7A7566] uppercase">Routing (ABA):</span>
-                        <div className="font-mono font-bold text-[#3D3A30]">121000358</div>
+                        <div className="font-mono font-bold text-[#3D3A30]">{bankRoutingNumber}</div>
                       </div>
                       <div className="p-3 bg-white rounded-xl border border-[#E8E2D6]">
                         <span className="text-[10px] font-bold text-[#7A7566] uppercase">Account #:</span>
-                        <div className="font-mono font-bold text-[#3D3A30]">••••••••4892</div>
+                        <div className="font-mono font-bold text-[#3D3A30]">{bankAccountNumber}</div>
                       </div>
+                      {bankSwiftBic && (
+                        <div className="p-3 bg-white rounded-xl border border-[#E8E2D6]">
+                          <span className="text-[10px] font-bold text-[#7A7566] uppercase">SWIFT / BIC:</span>
+                          <div className="font-mono font-bold text-[#3D3A30]">{bankSwiftBic}</div>
+                        </div>
+                      )}
+                      {zelleHandle && (
+                        <div className="p-3 bg-white rounded-xl border border-[#E8E2D6]">
+                          <span className="text-[10px] font-bold text-[#7A7566] uppercase">Zelle Handle:</span>
+                          <div className="font-bold text-[#5A5A40]">{zelleHandle}</div>
+                        </div>
+                      )}
                     </div>
-                    <div className="p-2.5 bg-[#F7F5EE] rounded-lg text-[#7A7566] text-[11px]">
-                      Zelle Handle: <strong>treasury@columbiamarket.org</strong> (Include {invoice.invoiceNumber} in memo)
-                    </div>
+                    {paymentInstructions && (
+                      <div className="p-2.5 bg-[#F7F5EE] rounded-lg text-[#7A7566] text-[11px]">
+                        <strong>Memo / Instructions:</strong> {paymentInstructions} (Include <strong>{invoice.invoiceNumber}</strong>)
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -553,7 +668,7 @@ export function InvoiceCheckoutModal({ invoice, onClose, onPaymentSubmitted }: I
                   <button
                     type="submit"
                     disabled={isSubmittingProof || !txHash}
-                    className="px-6 py-2.5 rounded-xl bg-[#5A5A40] hover:bg-[#464632] text-white text-xs font-bold flex items-center gap-2 shadow-xs transition-colors disabled:opacity-50"
+                    className="px-6 py-2.5 rounded-xl bg-[#5A5A40] hover:bg-[#464632] text-white text-xs font-bold flex items-center gap-2 shadow-xs transition-colors disabled:opacity-50 cursor-pointer"
                   >
                     <Send className={`w-4 h-4 ${isSubmittingProof ? 'animate-spin' : ''}`} />
                     <span>{isSubmittingProof ? 'Verifying...' : 'Confirm & Submit Payment Proof'}</span>
@@ -566,11 +681,11 @@ export function InvoiceCheckoutModal({ invoice, onClose, onPaymentSubmitted }: I
 
         {/* Footer */}
         <div className="p-4 sm:p-5 bg-white border-t border-[#E8E2D6] flex items-center justify-between text-xs text-[#7A7566]">
-          <span>Need assistance? Contact <strong>treasury@columbiamarket.org</strong></span>
+          <span>Need assistance? Contact <strong>{zelleHandle || 'treasury@columbiamarket.org'}</strong></span>
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-xl bg-[#F7F5EE] hover:bg-[#EAE4D6] text-[#3D3A30] font-bold transition-colors"
+            className="px-4 py-2 rounded-xl bg-[#F7F5EE] hover:bg-[#EAE4D6] text-[#3D3A30] font-bold transition-colors cursor-pointer"
           >
             Close Checkout
           </button>

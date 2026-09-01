@@ -19,6 +19,7 @@ import {
   ArrowRight
 } from 'lucide-react';
 import { FestivalConfigData, SmtpConfigData } from '../../../types';
+import { safeFetchJson } from '../../../lib/apiUtils';
 
 interface FestivalSettingsTabProps {
   config: FestivalConfigData;
@@ -69,9 +70,8 @@ export function FestivalSettingsTab({
     const targetRecipient = (form.contactEmail || smtpConfig?.fromEmail || 'events@festivalmarket.org').trim();
 
     try {
-      const res = await fetch('/api/test-smtp', {
+      const data = await safeFetchJson('/api/test-smtp', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           host: smtpConfig?.host,
           port: smtpConfig?.port,
@@ -84,7 +84,6 @@ export function FestivalSettingsTab({
         })
       });
 
-      const data = await res.json();
       if (data.success) {
         setSmtpTestResult('success');
         setSmtpTestDetails({

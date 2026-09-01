@@ -38,6 +38,7 @@ import {
 } from '../../../types';
 import { BOOTH_TIERS } from '../../../data/festivalData';
 import { saveInvoice } from '../../../lib/firebase';
+import { safeFetchJson } from '../../../lib/apiUtils';
 
 interface VendorApplicationsTabProps {
   applications: VendorApplicationRecord[];
@@ -281,9 +282,8 @@ export function VendorApplicationsTab({
 
     // Call server batch dispatch for delivery
     try {
-      await fetch('/api/send-batch-invoices', {
+      await safeFetchJson('/api/send-batch-invoices', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           invoices: generatedInvoices,
           smtpConfig,

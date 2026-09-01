@@ -6,7 +6,9 @@ import {
   AttendeeRsvpRecord, 
   EmailTemplateData, 
   SmtpConfigData, 
-  FestivalConfigData 
+  FestivalConfigData,
+  PaymentConfig,
+  Invoice
 } from '../../types';
 import { 
   auth, 
@@ -16,6 +18,8 @@ import {
   subscribeEmailTemplates,
   subscribeSmtpConfig,
   subscribeFestivalConfig,
+  subscribePaymentConfig,
+  subscribeInvoices,
   updateVendorApplicationStatus,
   deleteVendorApplication,
   createVendorApplication,
@@ -25,9 +29,11 @@ import {
   seedDefaultEmailTemplates,
   saveSmtpConfig,
   saveFestivalConfig,
+  savePaymentConfig,
   seedSampleData,
   DEFAULT_SMTP_CONFIG,
-  DEFAULT_FESTIVAL_CONFIG
+  DEFAULT_FESTIVAL_CONFIG,
+  DEFAULT_PAYMENT_CONFIG
 } from '../../lib/firebase';
 import { DEFAULT_EMAIL_TEMPLATES } from '../../data/defaultEmailTemplates';
 import { sendAutomatedEmail } from '../../lib/emailService';
@@ -38,6 +44,8 @@ import { AdminLogin } from './AdminLogin';
 // Import Tabs
 import { DashboardTab } from './tabs/DashboardTab';
 import { VendorApplicationsTab } from './tabs/VendorApplicationsTab';
+import { InvoicesTab } from './tabs/InvoicesTab';
+import { PaymentConfigTab } from './tabs/PaymentConfigTab';
 import { AttendeeRsvpsTab } from './tabs/AttendeeRsvpsTab';
 import { BoothsManagerTab } from './tabs/BoothsManagerTab';
 import { ScheduleManagerTab } from './tabs/ScheduleManagerTab';
@@ -46,6 +54,7 @@ import { SmtpConfigTab } from './tabs/SmtpConfigTab';
 import { FestivalSettingsTab } from './tabs/FestivalSettingsTab';
 
 // Modals
+import { InvoicePreviewModal } from './modals/InvoicePreviewModal';
 import { Send, X, Check, Eye } from 'lucide-react';
 import { interpolateTemplate } from '../../lib/antiSpamUtils';
 
@@ -70,11 +79,18 @@ export function KingAdminPortal({ onExitAdmin }: KingAdminPortalProps) {
   const [emailTemplates, setEmailTemplates] = useState<EmailTemplateData[]>(DEFAULT_EMAIL_TEMPLATES);
   const [smtpConfig, setSmtpConfig] = useState<SmtpConfigData>(DEFAULT_SMTP_CONFIG);
   const [festivalConfig, setFestivalConfig] = useState<FestivalConfigData>(DEFAULT_FESTIVAL_CONFIG);
+  const [paymentConfig, setPaymentConfig] = useState<PaymentConfig>(DEFAULT_PAYMENT_CONFIG);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
 
   // Modals and Inspector states
   const [selectedAppForInspector, setSelectedAppForInspector] = useState<VendorApplicationRecord | null>(null);
   const [isCreateVendorModalOpen, setIsCreateVendorModalOpen] = useState(false);
   const [isSeeding, setIsSeeding] = useState(false);
+
+  // Invoice Modal State
+  const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
+  const [selectedVendorForInvoice, setSelectedVendorForInvoice] = useState<VendorApplicationRecord | null>(null);
+  const [selectedInvoiceForModal, setSelectedInvoiceForModal] = useState<Invoice | null>(null);
 
   // Quick Direct Email Dispatch Modal
   const [directEmailModal, setDirectEmailModal] = useState<{
@@ -111,6 +127,8 @@ export function KingAdminPortal({ onExitAdmin }: KingAdminPortalProps) {
     const unsubTemplates = subscribeEmailTemplates((tmpls) => setEmailTemplates(tmpls));
     const unsubSmtp = subscribeSmtpConfig((cfg) => setSmtpConfig(cfg));
     const unsubFest = subscribeFestivalConfig((cfg) => setFestivalConfig(cfg));
+    const unsubPayments = subscribePaymentConfig((cfg) => setPaymentConfig(cfg));
+    const unsubInvoices = subscribeInvoices((invs) => setInvoices(invs));
 
     return () => {
       unsubApps();
@@ -118,6 +136,8 @@ export function KingAdminPortal({ onExitAdmin }: KingAdminPortalProps) {
       unsubTemplates();
       unsubSmtp();
       unsubFest();
+      unsubPayments();
+      unsubInvoices();
     };
   }, [currentUser, isDemoAdmin]);
 
@@ -137,6 +157,12 @@ export function KingAdminPortal({ onExitAdmin }: KingAdminPortalProps) {
     } finally {
       setIsSeeding(false);
     }
+  };
+
+  const handleOpenInvoiceModalForVendor = (app: VendorApplicationRecord) => {
+    setSelectedVendorForInvoice(app);
+    setSelectedInvoiceForModal(null);
+    setIsInvoiceModalOpen(true);
   };
 
   const handleOpenEmailModalForVendor = (app: VendorApplicationRecord, defaultTemplateKey = 'vendor_app_received') => {
@@ -212,8 +238,10 @@ export function KingAdminPortal({ onExitAdmin }: KingAdminPortalProps) {
   };
 
   const tabTitles: Record<AdminTab, { title: string; subtitle: string }> = {
-    dashboard: { title: 'Operations Dashboard', subtitle: 'Real-time overview of applications, attendance & revenue' },
-    applications: { title: 'Vendor Applications', subtitle: 'Exhibitor review, zone allocations & approval queue' },
+    dashboard: { title: 'Operations Dashboard', subtitle: 'Real-time overview of applications, attendance, crypto reserves & revenue' },
+    applications: { title: 'Vendor Applications', subtitle: 'Exhibitor review, batch invoicing, zone allocations & approval queue' },
+    invoices: { title: 'Invoices & Crypto Checkout', subtitle: 'Payment links, invoice dispatching, crypto settlement & receipts' },
+    payments: { title: 'Payment Configuration & Wallets', subtitle: 'USDT (TRC20/ERC20/SOL), ETH, BTC, CashApp, Kraken & Wire' },
     attendees: { title: 'Attendee RSVPs & Fast-Passes', subtitle: 'Visitor passes, attendance forecasts & gate check-ins' },
     booths: { title: 'Booth Spaces & Pricing Tiers', subtitle: 'Dimension limits, equipment inclusions & daily fees' },
     schedule: { title: 'Festival Schedule & Lineup', subtitle: 'Stage entertainment, artisan demos & hourly agenda' },
@@ -237,6 +265,8 @@ export function KingAdminPortal({ onExitAdmin }: KingAdminPortalProps) {
   const renderedDirectSubject = interpolateTemplate(directTemplate?.subject || '', directEmailModal.variables);
   const renderedDirectHtml = interpolateTemplate(directTemplate?.htmlBody || '', directEmailModal.variables);
 
+  const unpaidInvoicesCount = invoices.filter(i => i.status === 'sent' || i.status === 'under_review').length;
+
   return (
     <div className="flex h-screen bg-[#FDFBF7] text-[#3D3A30] overflow-hidden font-sans">
       
@@ -250,6 +280,7 @@ export function KingAdminPortal({ onExitAdmin }: KingAdminPortalProps) {
           }}
           pendingAppsCount={applications.filter(a => a.status === 'pending').length}
           totalAttendeesCount={attendees.length}
+          unpaidInvoicesCount={unpaidInvoicesCount}
           onExitAdmin={onExitAdmin}
           onSignOut={handleSignOut}
           isCollapsed={isSidebarCollapsed}
@@ -271,6 +302,7 @@ export function KingAdminPortal({ onExitAdmin }: KingAdminPortalProps) {
               }}
               pendingAppsCount={applications.filter(a => a.status === 'pending').length}
               totalAttendeesCount={attendees.length}
+              unpaidInvoicesCount={unpaidInvoicesCount}
               onExitAdmin={onExitAdmin}
               onSignOut={handleSignOut}
               isCollapsed={false}
@@ -305,6 +337,8 @@ export function KingAdminPortal({ onExitAdmin }: KingAdminPortalProps) {
               <DashboardTab
                 applications={applications}
                 attendees={attendees}
+                invoices={invoices}
+                paymentConfig={paymentConfig}
                 onSelectTab={setCurrentTab}
                 onSelectApplication={(app) => {
                   setSelectedAppForInspector(app);
@@ -328,6 +362,26 @@ export function KingAdminPortal({ onExitAdmin }: KingAdminPortalProps) {
                 isCreateModalOpen={isCreateVendorModalOpen}
                 onSetCreateModalOpen={setIsCreateVendorModalOpen}
                 onCreateApplication={(data) => createVendorApplication(data)}
+                onOpenInvoiceModal={handleOpenInvoiceModalForVendor}
+                paymentConfig={paymentConfig}
+                smtpConfig={smtpConfig}
+                festivalConfig={festivalConfig}
+              />
+            )}
+
+            {currentTab === 'invoices' && (
+              <InvoicesTab
+                invoices={invoices}
+                paymentConfig={paymentConfig}
+                smtpConfig={smtpConfig}
+                festivalConfig={festivalConfig}
+              />
+            )}
+
+            {currentTab === 'payments' && (
+              <PaymentConfigTab
+                config={paymentConfig}
+                onSaveConfig={(cfg) => savePaymentConfig(cfg)}
               />
             )}
 
@@ -379,6 +433,23 @@ export function KingAdminPortal({ onExitAdmin }: KingAdminPortalProps) {
         </main>
 
       </div>
+
+      {/* INVOICE GENERATOR / PREVIEW MODAL */}
+      {isInvoiceModalOpen && (
+        <InvoicePreviewModal
+          isOpen={isInvoiceModalOpen}
+          onClose={() => {
+            setIsInvoiceModalOpen(false);
+            setSelectedVendorForInvoice(null);
+            setSelectedInvoiceForModal(null);
+          }}
+          vendor={selectedVendorForInvoice}
+          existingInvoice={selectedInvoiceForModal}
+          paymentConfig={paymentConfig}
+          smtpConfig={smtpConfig}
+          festivalConfig={festivalConfig}
+        />
+      )}
 
       {/* DIRECT EMAIL DISPATCH PREVIEW MODAL */}
       {directEmailModal.isOpen && directTemplate && (
@@ -451,25 +522,16 @@ export function KingAdminPortal({ onExitAdmin }: KingAdminPortalProps) {
                 >
                   Cancel
                 </button>
-
                 <button
+                  type="button"
                   onClick={handleExecuteDirectSend}
                   disabled={directEmailModal.status !== 'idle'}
-                  className="px-5 py-2 rounded-xl bg-[#5A5A40] hover:bg-[#464632] text-white text-xs font-bold flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                  className="px-5 py-2 rounded-xl bg-[#5A5A40] hover:bg-[#464632] text-white text-xs font-bold flex items-center gap-1.5 shadow-sm disabled:opacity-50"
                 >
-                  {directEmailModal.status === 'sending' ? (
-                    <span>Sending Mail...</span>
-                  ) : directEmailModal.status === 'sent' ? (
-                    <>
-                      <Check className="w-3.5 h-3.5" />
-                      <span>Email Dispatched!</span>
-                    </>
-                  ) : (
-                    <>
-                      <Send className="w-3.5 h-3.5" />
-                      <span>Send Email Now</span>
-                    </>
-                  )}
+                  <Send className={`w-3.5 h-3.5 ${directEmailModal.status === 'sending' ? 'animate-spin' : ''}`} />
+                  <span>
+                    {directEmailModal.status === 'sending' ? 'Sending...' : directEmailModal.status === 'sent' ? 'Dispatched!' : 'Send Email Now'}
+                  </span>
                 </button>
               </div>
             </div>

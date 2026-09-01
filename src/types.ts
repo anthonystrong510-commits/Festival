@@ -216,9 +216,130 @@ export interface SendEmailResult {
   error?: string;
 }
 
+export interface PaymentConfig {
+  id?: string;
+  // Stablecoin & On-chain Crypto
+  usdtTrc20: string;
+  usdtErc20: string;
+  usdtSolana: string;
+  ethereumAddress: string;
+  ethereumEns?: string;
+  bitcoinAddress: string;
+  bitcoinLightning?: string;
+  // Sponsors
+  cashAppCashtag: string;
+  cashAppBtcAddress?: string;
+  cashAppEnabled: boolean;
+  krakenPayId: string;
+  krakenDepositAddress?: string;
+  krakenSponsorBadgeEnabled: boolean;
+  // Traditional Rails
+  bankName?: string;
+  bankAccountName?: string;
+  bankAccountNumber?: string;
+  bankRoutingNumber?: string;
+  bankSwiftBic?: string;
+  zelleHandle?: string;
+  paymentInstructions?: string;
+  updatedAt?: string;
+}
+
+export interface InvoiceLineItem {
+  id: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  total: number;
+  category?: 'booth_fee' | 'electrical' | 'water' | 'equipment' | 'sponsorship' | 'discount' | 'other';
+}
+
+export interface InvoicePaymentSubmission {
+  method: 'usdt_trc20' | 'usdt_erc20' | 'usdt_solana' | 'eth' | 'btc' | 'cashapp' | 'kraken' | 'bank_wire' | 'zelle' | 'other';
+  txHash?: string;
+  payerWalletOrHandle?: string;
+  network?: string;
+  paidAmount: number;
+  paidCurrency: string;
+  submittedAt: string;
+  proofNote?: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
+}
+
+export interface InvoiceCryptoAddresses {
+  usdtTrc20?: string;
+  usdtErc20?: string;
+  usdtSolana?: string;
+  ethereumAddress?: string;
+  ethereumEns?: string;
+  bitcoinAddress?: string;
+  bitcoinLightning?: string;
+  cashAppCashtag?: string;
+  cashAppBtcAddress?: string;
+  krakenPayId?: string;
+  krakenDepositAddress?: string;
+}
+
+export type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'under_review' | 'overdue' | 'cancelled';
+
+export interface Invoice {
+  id: string;
+  invoiceNumber: string;
+  vendorApplicationId?: string;
+  recipientBusinessName: string;
+  recipientContactName: string;
+  recipientEmail: string;
+  recipientPhone?: string;
+  recipientAddress?: string;
+  issueDate: string;
+  dueDate: string;
+  status: InvoiceStatus;
+  items: InvoiceLineItem[];
+  subtotal: number;
+  discountAmount: number;
+  taxAmount: number;
+  totalAmount: number;
+  paidAmount: number;
+  currency: string;
+  notes?: string;
+  terms?: string;
+  cryptoAddresses?: InvoiceCryptoAddresses;
+  paymentDetailsSubmitted?: InvoicePaymentSubmission;
+  sentAt?: string;
+  paidAt?: string;
+  checkoutUrl?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CryptoTreasuryAsset {
+  symbol: 'USDT' | 'ETH' | 'BTC';
+  network: string;
+  name: string;
+  address: string;
+  balance: number;
+  priceUsd: number;
+  valueUsd: number;
+  change24h: number;
+  explorerUrl: string;
+  qrData?: string;
+  isMockSync?: boolean;
+}
+
+export interface CryptoTreasuryOverview {
+  totalUsdValue: number;
+  totalUsdt: number;
+  totalEth: number;
+  totalBtc: number;
+  lastUpdated: string;
+  assets: CryptoTreasuryAsset[];
+}
+
 export type AdminTab = 
   | 'dashboard' 
   | 'applications' 
+  | 'invoices'
+  | 'payments'
   | 'attendees' 
   | 'booths' 
   | 'schedule' 

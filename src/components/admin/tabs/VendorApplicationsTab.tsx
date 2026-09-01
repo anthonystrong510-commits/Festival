@@ -19,14 +19,25 @@ import {
   CheckCircle2,
   Send,
   MoreVertical,
-  ChevronDown
+  ChevronDown,
+  Coins,
+  Sparkles,
+  CheckSquare,
+  Square,
+  MinusSquare,
+  Receipt
 } from 'lucide-react';
 import { 
   VendorApplicationRecord, 
   ApplicationStatus, 
-  BoothId 
+  BoothId,
+  PaymentConfig,
+  SmtpConfigData,
+  FestivalConfigData,
+  Invoice
 } from '../../../types';
 import { BOOTH_TIERS } from '../../../data/festivalData';
+import { saveInvoice } from '../../../lib/firebase';
 
 interface VendorApplicationsTabProps {
   applications: VendorApplicationRecord[];
@@ -38,6 +49,10 @@ interface VendorApplicationsTabProps {
   isCreateModalOpen: boolean;
   onSetCreateModalOpen: (open: boolean) => void;
   onCreateApplication: (data: Omit<VendorApplicationRecord, 'id' | 'createdAt' | 'status'>) => void;
+  onOpenInvoiceModal?: (app: VendorApplicationRecord) => void;
+  paymentConfig?: PaymentConfig;
+  smtpConfig?: SmtpConfigData;
+  festivalConfig?: FestivalConfigData;
 }
 
 export function VendorApplicationsTab({
@@ -49,13 +64,23 @@ export function VendorApplicationsTab({
   onSelectAppForModal,
   isCreateModalOpen,
   onSetCreateModalOpen,
-  onCreateApplication
+  onCreateApplication,
+  onOpenInvoiceModal,
+  paymentConfig,
+  smtpConfig,
+  festivalConfig
 }: VendorApplicationsTabProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [dayFilter, setDayFilter] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
+
+  // Batch Selection State
+  const [selectedVendorIds, setSelectedVendorIds] = useState<Set<string>>(new Set());
+  const [isBatchInvoiceModalOpen, setIsBatchInvoiceModalOpen] = useState(false);
+  const [isBatchProcessing, setIsBatchProcessing] = useState(false);
+  const [batchProgress, setBatchProgress] = useState<{ total: number; sent: number; errors: number; statusText: string } | null>(null);
 
   // New Vendor Manual Form State
   const [newForm, setNewForm] = useState({
@@ -81,7 +106,6 @@ export function VendorApplicationsTab({
     adminNotes: ''
   });
 
-  // Filter applications
   const filteredApplications = useMemo(() => {
     return applications.filter((app) => {
       // Search
@@ -114,6 +138,153 @@ export function VendorApplicationsTab({
       return true;
     });
   }, [applications, searchQuery, statusFilter, categoryFilter, dayFilter]);
+
+  // Selection helper
+  const allFilteredSelected = filteredApplications.length > 0 && filteredApplications.every(a => selectedVendorIds.has(a.id));
+  const someFilteredSelected = filteredApplications.some(a => selectedVendorIds.has(a.id));
+
+  const handleToggleSelectAll = () => {
+    if (allFilteredSelected) {
+      setSelectedVendorIds(new Set());
+    } else {
+      const newSet = new Set(selectedVendorIds);
+      filteredApplications.forEach(a => newSet.add(a.id));
+      setSelectedVendorIds(newSet);
+    }
+  };
+
+  const handleToggleSelectVendor = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const newSet = new Set(selectedVendorIds);
+    if (newSet.has(id)) {
+      newSet.delete(id);
+    } else {
+      newSet.add(id);
+    }
+    setSelectedVendorIds(newSet);
+  };
+
+  const selectedVendorsList = applications.filter(a => selectedVendorIds.has(a.id));
+
+  // Batch Invoice Processing
+  const handleExecuteBatchInvoices = async () => {
+    if (selectedVendorsList.length === 0) return;
+    setIsBatchProcessing(true);
+    setBatchProgress({
+      total: selectedVendorsList.length,
+      sent: 0,
+      errors: 0,
+      statusText: 'Generating and dispatching invoices...'
+    });
+
+    const generatedInvoices: Invoice[] = [];
+
+    for (let i = 0; i < selectedVendorsList.length; i++) {
+      const vendor = selectedVendorsList[i];
+      try {
+        const invId = `inv-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
+        const invoiceNumber = `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+        const now = new Date().toISOString();
+
+        const lineItems = [
+          {
+            id: 'item-1',
+            description: `${vendor.category} - Space Reservation (${vendor.selectedBoothId})`,
+            quantity: 1,
+            unitPrice: vendor.totalCalculatedFee || 275,
+            total: vendor.totalCalculatedFee || 275,
+            category: 'booth_fee' as const
+          }
+        ];
+
+        const fullInvoice: Invoice = {
+          id: invId,
+          invoiceNumber,
+          vendorApplicationId: vendor.id,
+          recipientBusinessName: vendor.businessName,
+          recipientContactName: vendor.contactName,
+          recipientEmail: vendor.email,
+          recipientPhone: vendor.phone || '',
+          recipientAddress: '',
+          issueDate: now.split('T')[0],
+          dueDate: new Date(Date.now() + 14 * 86400000).toISOString().split('T')[0],
+          status: 'sent',
+          items: lineItems,
+          subtotal: vendor.totalCalculatedFee || 275,
+          discountAmount: 0,
+          taxAmount: 0,
+          totalAmount: vendor.totalCalculatedFee || 275,
+          paidAmount: 0,
+          currency: 'USD',
+          notes: 'Space allocation invoice for Columbia Community Festival.',
+          terms: 'Payment is due within 14 days to lock reserved booth location.',
+          cryptoAddresses: {
+            usdtTrc20: paymentConfig?.usdtTrc20,
+            usdtErc20: paymentConfig?.usdtErc20,
+            usdtSolana: paymentConfig?.usdtSolana,
+            ethereumAddress: paymentConfig?.ethereumAddress,
+            bitcoinAddress: paymentConfig?.bitcoinAddress,
+            cashAppCashtag: paymentConfig?.cashAppCashtag,
+            krakenPayId: paymentConfig?.krakenPayId
+          },
+          sentAt: now,
+          checkoutUrl: `${window.location.origin}/?invoice=${invId}`,
+          createdAt: now,
+          updatedAt: now
+        };
+
+        await saveInvoice(fullInvoice);
+        generatedInvoices.push(fullInvoice);
+
+        // Update application status to approved if currently pending
+        if (vendor.status === 'pending') {
+          onUpdateStatus(vendor.id, { status: 'approved' });
+        }
+
+        setBatchProgress(prev => prev ? {
+          ...prev,
+          sent: prev.sent + 1,
+          statusText: `Processed ${i + 1} of ${selectedVendorsList.length}: ${vendor.businessName}`
+        } : null);
+      } catch (err) {
+        console.error('Error generating batch invoice for vendor:', vendor.businessName, err);
+        setBatchProgress(prev => prev ? {
+          ...prev,
+          errors: prev.errors + 1
+        } : null);
+      }
+    }
+
+    // Call server batch dispatch for delivery
+    try {
+      await fetch('/api/send-batch-invoices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          invoices: generatedInvoices,
+          smtpConfig,
+          festivalConfig
+        })
+      });
+    } catch (e) {
+      console.warn('Batch email server notification:', e);
+    }
+
+    setIsBatchProcessing(false);
+    setBatchProgress(prev => prev ? {
+      ...prev,
+      statusText: `Complete! Sent ${generatedInvoices.length} invoices successfully.`
+    } : null);
+  };
+
+  const handleBatchApprove = () => {
+    selectedVendorsList.forEach(v => {
+      if (v.status !== 'approved') {
+        onUpdateStatus(v.id, { status: 'approved' });
+      }
+    });
+    setSelectedVendorIds(new Set());
+  };
 
   // Unique categories for filter dropdown
   const uniqueCategories = useMemo(() => {
@@ -275,11 +446,27 @@ export function VendorApplicationsTab({
           </p>
         </div>
       ) : (
-        <div className="bg-white rounded-2xl border border-[#E8E2D6] overflow-hidden shadow-xs">
+        <div className="bg-white rounded-2xl border border-[#E8E2D6] overflow-hidden shadow-xs relative">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead>
                 <tr className="bg-[#F7F5EE] border-b border-[#E8E2D6] text-[#6B6658] font-bold uppercase text-[10px] tracking-wider">
+                  <th className="py-3.5 px-3 w-10 text-center">
+                    <button
+                      type="button"
+                      onClick={handleToggleSelectAll}
+                      className="p-1 rounded hover:bg-[#EAE4D6] transition-colors"
+                      title={allFilteredSelected ? 'Deselect all' : 'Select all'}
+                    >
+                      {allFilteredSelected ? (
+                        <CheckSquare className="w-4 h-4 text-[#5A5A40]" />
+                      ) : someFilteredSelected ? (
+                        <MinusSquare className="w-4 h-4 text-[#5A5A40]" />
+                      ) : (
+                        <Square className="w-4 h-4 text-[#A09B8D]" />
+                      )}
+                    </button>
+                  </th>
                   <th className="py-3.5 px-4">Business & Contact</th>
                   <th className="py-3.5 px-4">Category</th>
                   <th className="py-3.5 px-4">Space Tier</th>
@@ -292,11 +479,28 @@ export function VendorApplicationsTab({
               <tbody className="divide-y divide-[#E8E2D6]">
                 {filteredApplications.map((app) => {
                   const booth = BOOTH_TIERS.find(b => b.id === app.selectedBoothId);
+                  const isSelected = selectedVendorIds.has(app.id);
+
                   return (
                     <tr 
                       key={app.id} 
-                      className="hover:bg-[#FDFBF7] transition-colors"
+                      className={`hover:bg-[#FDFBF7] transition-colors ${isSelected ? 'bg-[#FAF8F5]' : ''}`}
                     >
+                      {/* Checkbox Column */}
+                      <td className="py-3.5 px-3 text-center">
+                        <button
+                          type="button"
+                          onClick={(e) => handleToggleSelectVendor(app.id, e)}
+                          className="p-1 rounded hover:bg-[#EAE4D6] transition-colors"
+                        >
+                          {isSelected ? (
+                            <CheckSquare className="w-4 h-4 text-[#5A5A40]" />
+                          ) : (
+                            <Square className="w-4 h-4 text-[#A09B8D]" />
+                          )}
+                        </button>
+                      </td>
+
                       <td className="py-3.5 px-4">
                         <div 
                           onClick={() => onSelectAppForModal(app)}
@@ -349,6 +553,19 @@ export function VendorApplicationsTab({
 
                       <td className="py-3.5 px-4 text-right">
                         <div className="inline-flex items-center gap-1.5">
+                          {/* Send Invoice Button */}
+                          {onOpenInvoiceModal && (
+                            <button
+                              type="button"
+                              onClick={() => onOpenInvoiceModal(app)}
+                              className="px-2.5 py-1.5 rounded-lg bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200 text-[11px] font-bold flex items-center gap-1 transition-colors shadow-xs"
+                              title="Generate & Send Payment Invoice"
+                            >
+                              <Receipt className="w-3.5 h-3.5 text-emerald-700" />
+                              <span>Invoice</span>
+                            </button>
+                          )}
+
                           {/* Quick Approve / Change status */}
                           {app.status === 'pending' && (
                             <button
@@ -386,6 +603,119 @@ export function VendorApplicationsTab({
                 })}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Sticky Batch Action Bar */}
+      {selectedVendorIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-[#3D3A30] text-white px-5 py-3 rounded-2xl shadow-2xl border border-white/20 flex items-center gap-4 animate-in fade-in slide-in-from-bottom-4">
+          <div className="flex items-center gap-2">
+            <span className="w-6 h-6 rounded-full bg-emerald-500 text-white text-xs font-bold flex items-center justify-center">
+              {selectedVendorIds.size}
+            </span>
+            <span className="text-xs font-semibold">Vendors Selected</span>
+          </div>
+
+          <div className="h-5 w-px bg-white/20" />
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsBatchInvoiceModalOpen(true)}
+              className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 transition-colors shadow-xs"
+            >
+              <Coins className="w-4 h-4" />
+              <span>Generate & Email Invoices ({selectedVendorIds.size})</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleBatchApprove}
+              className="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold flex items-center gap-1.5 transition-colors"
+            >
+              <Check className="w-4 h-4" />
+              <span>Approve All</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSelectedVendorIds(new Set())}
+              className="px-2.5 py-2 rounded-xl text-white/70 hover:text-white text-xs font-bold transition-colors"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Batch Invoice Dispatch Modal */}
+      {isBatchInvoiceModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-xl border border-[#E8E2D6] animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between pb-3 border-b border-[#E8E2D6]">
+              <div className="flex items-center gap-2">
+                <Coins className="w-5 h-5 text-[#5A5A40]" />
+                <h3 className="font-bold text-base text-[#3D3A30]">Batch Invoice Generation</h3>
+              </div>
+              <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold">
+                {selectedVendorIds.size} Selected Vendors
+              </span>
+            </div>
+
+            <p className="text-xs text-[#7A7566]">
+              This will automatically generate itemized invoices, assign custom checkout links with configured crypto wallets (USDT, ETH, BTC, CashApp, Kraken), and dispatch official email notifications to all selected vendors.
+            </p>
+
+            <div className="max-h-48 overflow-y-auto border border-[#E8E2D6] rounded-xl p-2 bg-[#FAF8F5] space-y-1.5 text-xs">
+              {selectedVendorsList.map((v) => (
+                <div key={v.id} className="p-2 bg-white rounded-lg border border-[#E8E2D6] flex items-center justify-between">
+                  <div>
+                    <div className="font-bold text-[#3D3A30]">{v.businessName}</div>
+                    <div className="text-[11px] text-[#7A7566]">{v.email}</div>
+                  </div>
+                  <div className="font-extrabold text-[#5A5A40]">
+                    ${v.totalCalculatedFee || 275}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {batchProgress && (
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs space-y-1">
+                <div className="font-bold text-emerald-950 flex items-center justify-between">
+                  <span>Batch Status</span>
+                  <span>{batchProgress.sent} / {batchProgress.total}</span>
+                </div>
+                <div className="text-[11px] text-emerald-800">{batchProgress.statusText}</div>
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsBatchInvoiceModalOpen(false);
+                  setBatchProgress(null);
+                }}
+                disabled={isBatchProcessing}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-[#7A7566] hover:bg-[#F7F5EE]"
+              >
+                {batchProgress ? 'Close' : 'Cancel'}
+              </button>
+
+              {!batchProgress?.sent ? (
+                <button
+                  type="button"
+                  onClick={handleExecuteBatchInvoices}
+                  disabled={isBatchProcessing}
+                  className="px-5 py-2.5 rounded-xl bg-[#5A5A40] hover:bg-[#464632] text-white text-xs font-bold flex items-center gap-2 shadow-xs transition-colors disabled:opacity-50"
+                >
+                  <Send className={`w-4 h-4 ${isBatchProcessing ? 'animate-spin' : ''}`} />
+                  <span>{isBatchProcessing ? 'Processing Invoices...' : `Confirm & Send ${selectedVendorIds.size} Invoices`}</span>
+                </button>
+              ) : null}
+            </div>
           </div>
         </div>
       )}
@@ -439,6 +769,20 @@ export function VendorApplicationsTab({
                       {st}
                     </button>
                   ))}
+
+                  {onOpenInvoiceModal && (
+                    <button
+                      onClick={() => {
+                        const app = selectedAppForModal;
+                        onSelectAppForModal(null);
+                        onOpenInvoiceModal(app);
+                      }}
+                      className="px-3.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs"
+                    >
+                      <Receipt className="w-3.5 h-3.5" />
+                      <span>Send Invoice (Crypto & Fiat)</span>
+                    </button>
+                  )}
 
                   <button
                     onClick={() => {

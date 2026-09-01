@@ -19,6 +19,8 @@ import {
   collection, 
   query, 
   orderBy, 
+  where,
+  limit,
   onSnapshot,
   serverTimestamp 
 } from 'firebase/firestore';
@@ -29,7 +31,11 @@ import {
   FestivalConfigData, 
   EmailTemplateData, 
   SmtpConfigData,
-  OutboundEmailLog 
+  OutboundEmailLog,
+  PaymentConfig,
+  Invoice,
+  InvoiceStatus,
+  InvoicePaymentSubmission
 } from '../types';
 import { EVENT_CONFIG } from '../data/festivalData';
 import { DEFAULT_EMAIL_TEMPLATES } from '../data/defaultEmailTemplates';
@@ -633,4 +639,223 @@ export async function seedSampleData(): Promise<{ apps: number; rsvps: number }>
   }
 
   return { apps: appCount, rsvps: rsvpCount };
+}
+
+// -------------------------------------------------------------
+// PAYMENT GATEWAY & CRYPTO ADDRESSES (USDT, ETH, BTC, KRAKEN, CASHAPP)
+// -------------------------------------------------------------
+
+export const DEFAULT_PAYMENT_CONFIG: PaymentConfig = {
+  id: 'main_payment_config',
+  usdtTrc20: 'TQ9w5fGq8F3D1Xv9Rz5L2P8m7K4v9W2p1L',
+  usdtErc20: '0x71C8366420A0926793fe1fcC713be5375B09B035',
+  usdtSolana: '7XwK8f9Rz5L2P8m7K4v9W2p1L8F3D1Xv9Rz5L2P8m7K4',
+  ethereumAddress: '0x71C8366420A0926793fe1fcC713be5375B09B035',
+  ethereumEns: 'columbiafestival.eth',
+  bitcoinAddress: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
+  bitcoinLightning: 'columbiafestival@strike.me',
+  cashAppCashtag: '$ColumbiaFestival',
+  cashAppBtcAddress: 'bc1q9v8u5h2x3k4p5w6q7r8s9t0u1v2w3x4y5z6a7b',
+  cashAppEnabled: true,
+  krakenPayId: 'KRAKEN-COLUMBIA-FEST-882',
+  krakenDepositAddress: '0x71C8366420A0926793fe1fcC713be5375B09B035',
+  krakenSponsorBadgeEnabled: true,
+  bankName: 'First Columbia Community Bank',
+  bankAccountName: 'Columbia Market Association LLC',
+  bankAccountNumber: '••••••••4892',
+  bankRoutingNumber: '121000358',
+  bankSwiftBic: 'FCBKUS33',
+  zelleHandle: 'treasury@columbiamarket.org',
+  paymentInstructions: 'Please include your Invoice # in the transaction memo or note. For on-chain cryptocurrency payments, paste your transaction hash (TxID) in the checkout receipt portal to confirm instant booth assignment.',
+  updatedAt: new Date().toISOString()
+};
+
+export async function getPaymentConfig(): Promise<PaymentConfig> {
+  try {
+    const docRef = doc(db, 'payment_config', 'main_payment_config');
+    const snap = await getDoc(docRef);
+    if (snap.exists()) {
+      return { ...DEFAULT_PAYMENT_CONFIG, ...snap.data(), id: 'main_payment_config' } as PaymentConfig;
+    }
+    // Bootstrap initial config
+    await setDoc(docRef, DEFAULT_PAYMENT_CONFIG);
+    return DEFAULT_PAYMENT_CONFIG;
+  } catch (error) {
+    console.error('Error fetching payment config:', error);
+    return DEFAULT_PAYMENT_CONFIG;
+  }
+}
+
+export async function savePaymentConfig(config: Partial<PaymentConfig>): Promise<PaymentConfig> {
+  try {
+    const docRef = doc(db, 'payment_config', 'main_payment_config');
+    const payload = {
+      ...config,
+      id: 'main_payment_config',
+      updatedAt: new Date().toISOString()
+    };
+    await setDoc(docRef, payload, { merge: true });
+    return payload as PaymentConfig;
+  } catch (error) {
+    console.error('Error saving payment config:', error);
+    throw error;
+  }
+}
+
+export function subscribePaymentConfig(callback: (config: PaymentConfig) => void): () => void {
+  const docRef = doc(db, 'payment_config', 'main_payment_config');
+  return onSnapshot(
+    docRef,
+    (snap) => {
+      if (snap.exists()) {
+        callback({ ...DEFAULT_PAYMENT_CONFIG, ...snap.data(), id: 'main_payment_config' } as PaymentConfig);
+      } else {
+        callback(DEFAULT_PAYMENT_CONFIG);
+      }
+    },
+    (err) => {
+      console.warn('Payment config snapshot error:', err);
+      callback(DEFAULT_PAYMENT_CONFIG);
+    }
+  );
+}
+
+// -------------------------------------------------------------
+// INVOICES & CHECKOUT
+// -------------------------------------------------------------
+
+export async function getInvoices(): Promise<Invoice[]> {
+  try {
+    const q = query(collection(db, 'invoices'), orderBy('createdAt', 'desc'));
+    const snap = await getDocs(q);
+    return snap.docs.map(d => ({ id: d.id, ...d.data() } as Invoice));
+  } catch (error) {
+    console.error('Error fetching invoices:', error);
+    return [];
+  }
+}
+
+export async function getInvoiceById(invoiceId: string): Promise<Invoice | null> {
+  try {
+    const docRef = doc(db, 'invoices', invoiceId);
+    const snap = await getDoc(docRef);
+    if (snap.exists()) {
+      return { id: snap.id, ...snap.data() } as Invoice;
+    }
+    // Also try search by invoiceNumber
+    const q = query(collection(db, 'invoices'), where('invoiceNumber', '==', invoiceId), limit(1));
+    const querySnap = await getDocs(q);
+    if (!querySnap.empty) {
+      return { id: querySnap.docs[0].id, ...querySnap.docs[0].data() } as Invoice;
+    }
+    return null;
+  } catch (error) {
+    console.error('Error getting invoice by id:', error);
+    return null;
+  }
+}
+
+export async function saveInvoice(invoice: Partial<Invoice> & { recipientEmail: string; totalAmount: number }): Promise<Invoice> {
+  try {
+    const id = invoice.id || `inv-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
+    const invoiceNumber = invoice.invoiceNumber || `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const now = new Date().toISOString();
+
+    const fullInvoice: Invoice = {
+      id,
+      invoiceNumber,
+      vendorApplicationId: invoice.vendorApplicationId || '',
+      recipientBusinessName: invoice.recipientBusinessName || 'Valued Vendor',
+      recipientContactName: invoice.recipientContactName || 'Vendor Representative',
+      recipientEmail: invoice.recipientEmail,
+      recipientPhone: invoice.recipientPhone || '',
+      recipientAddress: invoice.recipientAddress || '',
+      issueDate: invoice.issueDate || now.split('T')[0],
+      dueDate: invoice.dueDate || new Date(Date.now() + 14 * 86400000).toISOString().split('T')[0],
+      status: invoice.status || 'draft',
+      items: invoice.items || [],
+      subtotal: invoice.subtotal || invoice.totalAmount,
+      discountAmount: invoice.discountAmount || 0,
+      taxAmount: invoice.taxAmount || 0,
+      totalAmount: invoice.totalAmount,
+      paidAmount: invoice.paidAmount || 0,
+      currency: invoice.currency || 'USD',
+      notes: invoice.notes || 'Thank you for participating in the Columbia Community Vendor Marketplace!',
+      terms: invoice.terms || 'Payment is due within 14 days of receipt to guarantee reserved booth space and electrical allocations.',
+      cryptoAddresses: invoice.cryptoAddresses,
+      paymentDetailsSubmitted: invoice.paymentDetailsSubmitted,
+      sentAt: invoice.sentAt,
+      paidAt: invoice.paidAt,
+      checkoutUrl: invoice.checkoutUrl || `${window.location.origin}/?invoice=${id}`,
+      createdAt: invoice.createdAt || now,
+      updatedAt: now
+    };
+
+    await setDoc(doc(db, 'invoices', id), fullInvoice, { merge: true });
+    return fullInvoice;
+  } catch (error) {
+    console.error('Error saving invoice:', error);
+    throw error;
+  }
+}
+
+export async function updateInvoiceStatus(id: string, status: InvoiceStatus, paidAmount?: number): Promise<void> {
+  try {
+    const docRef = doc(db, 'invoices', id);
+    const updateData: Record<string, any> = {
+      status,
+      updatedAt: new Date().toISOString()
+    };
+    if (status === 'paid') {
+      updateData.paidAt = new Date().toISOString();
+      if (paidAmount !== undefined) {
+        updateData.paidAmount = paidAmount;
+      }
+    }
+    await updateDoc(docRef, updateData);
+  } catch (error) {
+    console.error('Error updating invoice status:', error);
+    throw error;
+  }
+}
+
+export async function submitInvoicePaymentProof(
+  invoiceId: string, 
+  submission: InvoicePaymentSubmission
+): Promise<void> {
+  try {
+    const docRef = doc(db, 'invoices', invoiceId);
+    await updateDoc(docRef, {
+      status: 'under_review',
+      paymentDetailsSubmitted: submission,
+      updatedAt: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error submitting payment proof:', error);
+    throw error;
+  }
+}
+
+export async function deleteInvoice(id: string): Promise<void> {
+  try {
+    await deleteDoc(doc(db, 'invoices', id));
+  } catch (error) {
+    console.error('Error deleting invoice:', error);
+    throw error;
+  }
+}
+
+export function subscribeInvoices(callback: (invoices: Invoice[]) => void): () => void {
+  const q = query(collection(db, 'invoices'), orderBy('createdAt', 'desc'));
+  return onSnapshot(
+    q,
+    (snap) => {
+      const items = snap.docs.map(d => ({ id: d.id, ...d.data() } as Invoice));
+      callback(items);
+    },
+    (err) => {
+      console.warn('Invoices snapshot error:', err);
+      callback([]);
+    }
+  );
 }

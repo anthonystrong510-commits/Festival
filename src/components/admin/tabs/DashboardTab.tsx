@@ -13,18 +13,25 @@ import {
   Calendar,
   Eye,
   Check,
-  X
+  X,
+  Coins,
+  FileText
 } from 'lucide-react';
 import { 
   VendorApplicationRecord, 
   AttendeeRsvpRecord, 
-  AdminTab 
+  AdminTab,
+  PaymentConfig,
+  Invoice
 } from '../../../types';
 import { BOOTH_TIERS } from '../../../data/festivalData';
+import { CryptoTreasuryWidget } from '../widgets/CryptoTreasuryWidget';
 
 interface DashboardTabProps {
   applications: VendorApplicationRecord[];
   attendees: AttendeeRsvpRecord[];
+  invoices?: Invoice[];
+  paymentConfig?: PaymentConfig;
   onSelectTab: (tab: AdminTab) => void;
   onSelectApplication: (app: VendorApplicationRecord) => void;
   onQuickApproveApplication: (id: string) => void;
@@ -36,6 +43,8 @@ interface DashboardTabProps {
 export function DashboardTab({
   applications,
   attendees,
+  invoices = [],
+  paymentConfig,
   onSelectTab,
   onSelectApplication,
   onQuickApproveApplication,
@@ -70,7 +79,7 @@ export function DashboardTab({
             Festival Organizer Command Center
           </h2>
           <p className="text-[#E8E2D6] text-xs sm:text-sm leading-relaxed">
-            Monitor vendor applications, manage attendee gate check-ins, send anti-spam compliant emails, and control event schedules in real-time.
+            Monitor vendor applications, manage attendee gate check-ins, oversee crypto treasury reserves (USDT, ETH, BTC), and issue verified payment invoices in real-time.
           </p>
         </div>
 
@@ -85,6 +94,14 @@ export function DashboardTab({
           </button>
 
           <button
+            onClick={() => onSelectTab('invoices')}
+            className="px-4 py-2 rounded-xl bg-emerald-700/80 hover:bg-emerald-700 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm"
+          >
+            <FileText className="w-4 h-4 text-emerald-300" />
+            <span>Invoices & Crypto Checkout</span>
+          </button>
+
+          <button
             onClick={() => onSelectTab('emails')}
             className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white border border-white/20 text-xs font-bold transition-all flex items-center gap-1.5"
           >
@@ -93,6 +110,14 @@ export function DashboardTab({
           </button>
         </div>
       </div>
+
+      {/* Crypto Treasury Dashboard Widget */}
+      {paymentConfig && (
+        <CryptoTreasuryWidget
+          paymentConfig={paymentConfig}
+          onManageWallets={() => onSelectTab('payments')}
+        />
+      )}
 
       {/* Metrics Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

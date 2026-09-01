@@ -13,7 +13,10 @@ import {
   ShieldCheck, 
   ChevronLeft, 
   ChevronRight,
-  Sparkles
+  Sparkles,
+  FileText,
+  WalletCards,
+  Coins
 } from 'lucide-react';
 import { AdminTab } from '../../types';
 
@@ -22,6 +25,7 @@ interface AdminSidebarProps {
   onSelectTab: (tab: AdminTab) => void;
   pendingAppsCount: number;
   totalAttendeesCount: number;
+  unpaidInvoicesCount?: number;
   onExitAdmin: () => void;
   onSignOut: () => void;
   isCollapsed: boolean;
@@ -34,6 +38,7 @@ export function AdminSidebar({
   onSelectTab,
   pendingAppsCount,
   totalAttendeesCount,
+  unpaidInvoicesCount,
   onExitAdmin,
   onSignOut,
   isCollapsed,
@@ -48,6 +53,18 @@ export function AdminSidebar({
       icon: Store, 
       badge: pendingAppsCount > 0 ? pendingAppsCount : undefined,
       badgeColor: 'bg-amber-500 text-white'
+    },
+    { 
+      id: 'invoices', 
+      label: 'Invoices & Crypto Hub', 
+      icon: FileText,
+      badge: unpaidInvoicesCount && unpaidInvoicesCount > 0 ? unpaidInvoicesCount : undefined,
+      badgeColor: 'bg-emerald-600 text-white'
+    },
+    { 
+      id: 'payments', 
+      label: 'Payment & Wallets', 
+      icon: WalletCards 
     },
     { 
       id: 'attendees', 

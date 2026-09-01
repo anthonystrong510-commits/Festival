@@ -13,9 +13,32 @@ import { AttendeeRsvpModal } from './components/AttendeeRsvpModal';
 import { VendorApplicationModal } from './components/VendorApplicationModal';
 import { Footer } from './components/Footer';
 import { KingAdminPortal } from './components/admin/KingAdminPortal';
+import { PublicInvoiceView } from './components/checkout/PublicInvoiceView';
 import { Store, Ticket } from 'lucide-react';
 import { BoothId } from './types';
 import { updateDocumentHead } from './lib/headManager';
+
+function getInvoiceFromUrl(): string | null {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const queryInv = params.get('invoice') || params.get('inv') || params.get('checkout');
+    if (queryInv) return queryInv.trim();
+
+    const path = window.location.pathname;
+    const match = path.match(/^\/(?:invoice|invoices|checkout)\/([^/?#]+)/i);
+    if (match && match[1]) return decodeURIComponent(match[1].trim());
+
+    const hash = window.location.hash;
+    if (hash) {
+      if (hash.startsWith('#invoice=')) return decodeURIComponent(hash.replace('#invoice=', '').trim());
+      const hashMatch = hash.match(/^#(?:invoice|invoices|checkout)\/([^/?#]+)/i);
+      if (hashMatch && hashMatch[1]) return decodeURIComponent(hashMatch[1].trim());
+    }
+  } catch (e) {
+    console.warn('Failed to parse URL for invoice:', e);
+  }
+  return null;
+}
 
 export default function App() {
   const [isAdminView, setIsAdminView] = useState(() => {
@@ -24,6 +47,8 @@ export default function App() {
       window.location.hash === '#kingadmin'
     );
   });
+
+  const [activeInvoiceId, setActiveInvoiceId] = useState<string | null>(() => getInvoiceFromUrl());
 
   const [attendeeModalOpen, setAttendeeModalOpen] = useState(false);
   const [vendorModalOpen, setVendorModalOpen] = useState(false);
@@ -37,6 +62,13 @@ export default function App() {
         title: 'KingAdmin Operations Suite | Community Vendor Marketplace & Festival Expo',
         description: 'Secure administrator control center for managing vendor applications, booth space maps, attendee passes, anti-spam email templates, and SMTP deliverability.',
         canonicalPath: '/kingadmin',
+        noIndex: true
+      });
+    } else if (activeInvoiceId) {
+      updateDocumentHead({
+        title: `Invoice Checkout Portal | Columbia Community Vendor Marketplace`,
+        description: 'Official payment portal for reserved vendor booth space, electrical hookups, and festival showcase badges.',
+        canonicalPath: `/?invoice=${encodeURIComponent(activeInvoiceId)}`,
         noIndex: true
       });
     } else {
@@ -57,7 +89,7 @@ export default function App() {
         ]
       });
     }
-  }, [isAdminView]);
+  }, [isAdminView, activeInvoiceId]);
 
   // Sync URL changes and popstate (e.g. Back button or Direct URL input)
   useEffect(() => {
@@ -66,6 +98,7 @@ export default function App() {
         window.location.pathname.startsWith('/kingadmin') ||
         window.location.hash === '#kingadmin';
       setIsAdminView(isNowAdmin);
+      setActiveInvoiceId(getInvoiceFromUrl());
     };
 
     window.addEventListener('popstate', handleLocationChange);
@@ -79,12 +112,20 @@ export default function App() {
   const navigateToAdmin = () => {
     window.history.pushState({}, '', '/kingadmin');
     setIsAdminView(true);
+    setActiveInvoiceId(null);
     window.scrollTo({ top: 0, behavior: 'instant' });
   };
 
   const navigateToPublic = () => {
     window.history.pushState({}, '', '/');
     setIsAdminView(false);
+    setActiveInvoiceId(null);
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  };
+
+  const handleExitInvoiceView = () => {
+    window.history.pushState({}, '', '/');
+    setActiveInvoiceId(null);
     window.scrollTo({ top: 0, behavior: 'instant' });
   };
 
@@ -113,6 +154,16 @@ export default function App() {
   // If in Admin Mode, render the comprehensive KingAdmin portal
   if (isAdminView) {
     return <KingAdminPortal onExitAdmin={navigateToPublic} />;
+  }
+
+  // If in Public Invoice / Checkout Mode (from email invoice link ?invoice=... or /invoice/...)
+  if (activeInvoiceId) {
+    return (
+      <PublicInvoiceView 
+        invoiceId={activeInvoiceId} 
+        onExit={handleExitInvoiceView} 
+      />
+    );
   }
 
   return (

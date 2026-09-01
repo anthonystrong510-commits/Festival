@@ -24,7 +24,7 @@ import {
   onSnapshot,
   serverTimestamp 
 } from 'firebase/firestore';
-import firebaseConfig from '../../firebase-applet-config.json';
+import firebaseConfigFile from '../../firebase-applet-config.json';
 import { 
   VendorApplicationRecord, 
   AttendeeRsvpRecord, 
@@ -40,10 +40,49 @@ import {
 import { EVENT_CONFIG } from '../data/festivalData';
 import { DEFAULT_EMAIL_TEMPLATES } from '../data/defaultEmailTemplates';
 
-// 1. Initialize Firebase
-export const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+// -------------------------------------------------------------
+// 0. DEEP DATA SANITIZER (Removes undefined fields for Firestore)
+// -------------------------------------------------------------
+export function cleanFirestoreData<T>(data: T): T {
+  if (data === undefined) {
+    return undefined as unknown as T;
+  }
+  if (data === null || typeof data !== 'object') {
+    return data;
+  }
+  if (Array.isArray(data)) {
+    return data
+      .map(item => cleanFirestoreData(item))
+      .filter(item => item !== undefined) as unknown as T;
+  }
+  const cleaned: Record<string, any> = {};
+  for (const [key, value] of Object.entries(data)) {
+    if (value !== undefined) {
+      const cleanedVal = cleanFirestoreData(value);
+      if (cleanedVal !== undefined) {
+        cleaned[key] = cleanedVal;
+      }
+    }
+  }
+  return cleaned as T;
+}
+
+// -------------------------------------------------------------
+// 1. INITIALIZE FIREBASE (Resilient across AI Studio, Vercel & GitHub)
+// -------------------------------------------------------------
+const resolvedConfig = {
+  apiKey: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_FIREBASE_API_KEY) || firebaseConfigFile.apiKey || "AIzaSyD9JI68o2Pi0eg4-xc1oF9MoW1wu8fko4I",
+  authDomain: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_FIREBASE_AUTH_DOMAIN) || firebaseConfigFile.authDomain || "gen-lang-client-0283254070.firebaseapp.com",
+  projectId: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_FIREBASE_PROJECT_ID) || firebaseConfigFile.projectId || "gen-lang-client-0283254070",
+  storageBucket: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_FIREBASE_STORAGE_BUCKET) || firebaseConfigFile.storageBucket || "gen-lang-client-0283254070.firebasestorage.app",
+  messagingSenderId: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_FIREBASE_MESSAGING_SENDER_ID) || firebaseConfigFile.messagingSenderId || "488961384559",
+  appId: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_FIREBASE_APP_ID) || firebaseConfigFile.appId || "1:488961384559:web:ff37189c763307b22aad9a",
+  firestoreDatabaseId: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_FIREBASE_DATABASE_ID) || firebaseConfigFile.firestoreDatabaseId || "ai-studio-columbiavendorma-bc09c9db-2889-49bc-9d55-6083e4e80180"
+};
+
+export const app = getApps().length === 0 ? initializeApp(resolvedConfig) : getApp();
 export const auth = getAuth(app);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+export const db = getFirestore(app, resolvedConfig.firestoreDatabaseId);
 
 export const googleProvider = new GoogleAuthProvider();
 
@@ -123,8 +162,16 @@ export async function createVendorApplication(data: Omit<VendorApplicationRecord
     paymentStatus: 'unpaid'
   };
 
+  const cleaned = cleanFirestoreData(payload);
+
   try {
-    await setDoc(doc(db, 'vendor_applications', applicationId), payload);
+    await setDoc(doc(db, 'vendor_applications', applicationId), cleaned);
+    try {
+      const existingStr = localStorage.getItem('columbia_vendor_apps_cache');
+      const existing = existingStr ? JSON.parse(existingStr) : [];
+      const updated = [cleaned, ...existing.filter((a: any) => a.id !== applicationId)];
+      localStorage.setItem('columbia_vendor_apps_cache', JSON.stringify(updated));
+    } catch {}
     return applicationId;
   } catch (error) {
     handleFirestoreError(error, OperationType.CREATE, path);
@@ -132,7 +179,29 @@ export async function createVendorApplication(data: Omit<VendorApplicationRecord
 }
 
 export function subscribeVendorApplications(callback: (apps: VendorApplicationRecord[]) => void) {
+  // Read cache first for instant UI response
+  try {
+    const cachedStr = localStorage.getItem('columbia_vendor_apps_cache');
+    if (cachedStr) {
+      const parsed = JSON.parse(cachedStr);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        callback(parsed);
+      }
+    }
+  } catch {}
+
   const q = query(collection(db, 'vendor_applications'), orderBy('createdAt', 'desc'));
+
+  getDocs(q).then((snap) => {
+    if (!snap.empty) {
+      const list: VendorApplicationRecord[] = snap.docs.map(d => ({ id: d.id, ...(d.data() as Omit<VendorApplicationRecord, 'id'>) }));
+      localStorage.setItem('columbia_vendor_apps_cache', JSON.stringify(list));
+      callback(list);
+    }
+  }).catch((err) => {
+    console.warn('Initial vendor applications fetch note:', err);
+  });
+
   return onSnapshot(
     q,
     (snapshot) => {
@@ -140,11 +209,19 @@ export function subscribeVendorApplications(callback: (apps: VendorApplicationRe
       snapshot.forEach((d) => {
         list.push({ id: d.id, ...(d.data() as Omit<VendorApplicationRecord, 'id'>) });
       });
+      try {
+        localStorage.setItem('columbia_vendor_apps_cache', JSON.stringify(list));
+      } catch {}
       callback(list);
     },
     (error) => {
-      console.error('Snapshot error for vendor_applications:', error);
-      callback([]);
+      console.warn('Snapshot error for vendor_applications:', error);
+      try {
+        const cachedStr = localStorage.getItem('columbia_vendor_apps_cache');
+        if (cachedStr) {
+          callback(JSON.parse(cachedStr));
+        }
+      } catch {}
     }
   );
 }
@@ -154,11 +231,21 @@ export async function updateVendorApplicationStatus(
   updates: Partial<VendorApplicationRecord>
 ): Promise<void> {
   const path = `vendor_applications/${id}`;
+  const cleaned = cleanFirestoreData({
+    ...updates,
+    updatedAt: new Date().toISOString()
+  });
+
   try {
-    await updateDoc(doc(db, 'vendor_applications', id), {
-      ...updates,
-      updatedAt: new Date().toISOString()
-    });
+    await updateDoc(doc(db, 'vendor_applications', id), cleaned);
+    try {
+      const cachedStr = localStorage.getItem('columbia_vendor_apps_cache');
+      if (cachedStr) {
+        const parsed = JSON.parse(cachedStr);
+        const updated = parsed.map((a: any) => a.id === id ? { ...a, ...cleaned } : a);
+        localStorage.setItem('columbia_vendor_apps_cache', JSON.stringify(updated));
+      }
+    } catch {}
   } catch (error) {
     handleFirestoreError(error, OperationType.UPDATE, path);
   }
@@ -761,7 +848,7 @@ export async function saveInvoice(invoice: Partial<Invoice> & { recipientEmail: 
     const invoiceNumber = invoice.invoiceNumber || `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
     const now = new Date().toISOString();
 
-    const fullInvoice: Invoice = {
+    const payload: Record<string, any> = {
       id,
       invoiceNumber,
       vendorApplicationId: invoice.vendorApplicationId || '',
@@ -774,25 +861,57 @@ export async function saveInvoice(invoice: Partial<Invoice> & { recipientEmail: 
       dueDate: invoice.dueDate || new Date(Date.now() + 14 * 86400000).toISOString().split('T')[0],
       status: invoice.status || 'draft',
       items: invoice.items || [],
-      subtotal: invoice.subtotal || invoice.totalAmount,
-      discountAmount: invoice.discountAmount || 0,
-      taxAmount: invoice.taxAmount || 0,
-      totalAmount: invoice.totalAmount,
-      paidAmount: invoice.paidAmount || 0,
+      subtotal: Number(invoice.subtotal ?? invoice.totalAmount),
+      discountAmount: Number(invoice.discountAmount || 0),
+      taxAmount: Number(invoice.taxAmount || 0),
+      totalAmount: Number(invoice.totalAmount),
+      paidAmount: Number(invoice.paidAmount || 0),
       currency: invoice.currency || 'USD',
       notes: invoice.notes || 'Thank you for participating in the Columbia Community Vendor Marketplace!',
       terms: invoice.terms || 'Payment is due within 14 days of receipt to guarantee reserved booth space and electrical allocations.',
-      cryptoAddresses: invoice.cryptoAddresses,
-      paymentDetailsSubmitted: invoice.paymentDetailsSubmitted,
-      sentAt: invoice.sentAt,
-      paidAt: invoice.paidAt,
       checkoutUrl: invoice.checkoutUrl || `${window.location.origin}/?invoice=${id}`,
       createdAt: invoice.createdAt || now,
       updatedAt: now
     };
 
-    await setDoc(doc(db, 'invoices', id), fullInvoice, { merge: true });
-    return fullInvoice;
+    if (invoice.cryptoAddresses) {
+      payload.cryptoAddresses = cleanFirestoreData(invoice.cryptoAddresses);
+    }
+    if (invoice.paymentDetailsSubmitted) {
+      payload.paymentDetailsSubmitted = cleanFirestoreData(invoice.paymentDetailsSubmitted);
+    }
+    if (invoice.sentAt) {
+      payload.sentAt = invoice.sentAt;
+    }
+    if (invoice.paidAt) {
+      payload.paidAt = invoice.paidAt;
+    }
+
+    const cleanedPayload = cleanFirestoreData(payload);
+    await setDoc(doc(db, 'invoices', id), cleanedPayload, { merge: true });
+
+    // Sync to local storage cache
+    try {
+      const cached = localStorage.getItem('columbia_invoices_cache');
+      const existing = cached ? JSON.parse(cached) : [];
+      const updated = [cleanedPayload, ...existing.filter((i: any) => i.id !== id)];
+      localStorage.setItem('columbia_invoices_cache', JSON.stringify(updated));
+    } catch {}
+
+    // Also update vendor application record if vendorApplicationId exists
+    if (invoice.vendorApplicationId) {
+      try {
+        const updateStatus = invoice.status === 'paid' ? 'paid' : (invoice.status === 'sent' ? 'unpaid' : 'pending');
+        await updateDoc(doc(db, 'vendor_applications', invoice.vendorApplicationId), {
+          paymentStatus: updateStatus,
+          updatedAt: now
+        });
+      } catch (err) {
+        console.warn('Could not update vendor application payment status:', err);
+      }
+    }
+
+    return cleanedPayload as Invoice;
   } catch (error) {
     console.error('Error saving invoice:', error);
     throw error;
@@ -812,7 +931,17 @@ export async function updateInvoiceStatus(id: string, status: InvoiceStatus, pai
         updateData.paidAmount = paidAmount;
       }
     }
-    await updateDoc(docRef, updateData);
+    const cleaned = cleanFirestoreData(updateData);
+    await updateDoc(docRef, cleaned);
+
+    try {
+      const cached = localStorage.getItem('columbia_invoices_cache');
+      if (cached) {
+        const existing = JSON.parse(cached);
+        const updated = existing.map((i: any) => i.id === id ? { ...i, ...cleaned } : i);
+        localStorage.setItem('columbia_invoices_cache', JSON.stringify(updated));
+      }
+    } catch {}
   } catch (error) {
     console.error('Error updating invoice status:', error);
     throw error;
@@ -825,9 +954,10 @@ export async function submitInvoicePaymentProof(
 ): Promise<void> {
   try {
     const docRef = doc(db, 'invoices', invoiceId);
+    const cleanedSubmission = cleanFirestoreData(submission);
     await updateDoc(docRef, {
       status: 'under_review',
-      paymentDetailsSubmitted: submission,
+      paymentDetailsSubmitted: cleanedSubmission,
       updatedAt: new Date().toISOString()
     });
   } catch (error) {
@@ -839,6 +969,14 @@ export async function submitInvoicePaymentProof(
 export async function deleteInvoice(id: string): Promise<void> {
   try {
     await deleteDoc(doc(db, 'invoices', id));
+    try {
+      const cached = localStorage.getItem('columbia_invoices_cache');
+      if (cached) {
+        const existing = JSON.parse(cached);
+        const updated = existing.filter((i: any) => i.id !== id);
+        localStorage.setItem('columbia_invoices_cache', JSON.stringify(updated));
+      }
+    } catch {}
   } catch (error) {
     console.error('Error deleting invoice:', error);
     throw error;
@@ -846,16 +984,44 @@ export async function deleteInvoice(id: string): Promise<void> {
 }
 
 export function subscribeInvoices(callback: (invoices: Invoice[]) => void): () => void {
+  // Read cache first for instant render
+  try {
+    const cached = localStorage.getItem('columbia_invoices_cache');
+    if (cached) {
+      const list = JSON.parse(cached);
+      if (Array.isArray(list) && list.length > 0) {
+        callback(list);
+      }
+    }
+  } catch {}
+
   const q = query(collection(db, 'invoices'), orderBy('createdAt', 'desc'));
+
+  getDocs(q).then(snap => {
+    if (!snap.empty) {
+      const items = snap.docs.map(d => ({ id: d.id, ...d.data() } as Invoice));
+      localStorage.setItem('columbia_invoices_cache', JSON.stringify(items));
+      callback(items);
+    }
+  }).catch(() => {});
+
   return onSnapshot(
     q,
     (snap) => {
       const items = snap.docs.map(d => ({ id: d.id, ...d.data() } as Invoice));
+      try {
+        localStorage.setItem('columbia_invoices_cache', JSON.stringify(items));
+      } catch {}
       callback(items);
     },
     (err) => {
       console.warn('Invoices snapshot error:', err);
-      callback([]);
+      try {
+        const cached = localStorage.getItem('columbia_invoices_cache');
+        if (cached) {
+          callback(JSON.parse(cached));
+        }
+      } catch {}
     }
   );
 }

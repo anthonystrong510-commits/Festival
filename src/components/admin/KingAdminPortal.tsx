@@ -354,6 +354,7 @@ export function KingAdminPortal({ onExitAdmin }: KingAdminPortalProps) {
             {currentTab === 'applications' && (
               <VendorApplicationsTab
                 applications={applications}
+                invoices={invoices}
                 onUpdateStatus={(id, updates) => updateVendorApplicationStatus(id, updates)}
                 onDeleteApplication={(id) => deleteVendorApplication(id)}
                 onOpenEmailModal={handleOpenEmailModalForVendor}

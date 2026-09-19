@@ -132,7 +132,9 @@ export const Footer: React.FC<FooterProps> = ({
             <a href="#about" className="hover:text-[#5A5A40] transition-colors">About</a>
             <a href="#experience" className="hover:text-[#5A5A40] transition-colors">Experience</a>
             <a href="#schedule" className="hover:text-[#5A5A40] transition-colors">Schedule</a>
+            <a href="#states-directory" className="hover:text-[#5A5A40] transition-colors">50 States Guide</a>
             <a href="#faq" className="hover:text-[#5A5A40] transition-colors">Policies</a>
+            <a href="/sitemap.xml" target="_blank" rel="noopener noreferrer" className="hover:text-[#5A5A40] transition-colors font-mono text-[11px]">sitemap.xml</a>
             {onNavigateToAdmin ? (
               <button
                 onClick={onNavigateToAdmin}

@@ -8,6 +8,7 @@ import { InteractiveMap } from './components/InteractiveMap';
 import { SpotlightSection } from './components/SpotlightSection';
 import { VendorExpoBanner } from './components/VendorExpoBanner';
 import { VendorBookingPortal } from './components/VendorBookingPortal';
+import { NationwideVendorDirectory } from './components/NationwideVendorDirectory';
 import { FaqAndGuidelines } from './components/FaqAndGuidelines';
 import { AttendeeRsvpModal } from './components/AttendeeRsvpModal';
 import { VendorApplicationModal } from './components/VendorApplicationModal';
@@ -217,6 +218,11 @@ export default function App() {
 
         {/* Dedicated Vendor Booking Portal & Space Rates */}
         <VendorBookingPortal 
+          onOpenVendorModal={handleOpenVendorModal}
+        />
+
+        {/* 50 States & Metropolitan Markets Directory */}
+        <NationwideVendorDirectory
           onOpenVendorModal={handleOpenVendorModal}
         />
 

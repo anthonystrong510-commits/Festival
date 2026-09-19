@@ -33,6 +33,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     { label: 'Schedule', href: '#schedule' },
     { label: 'Grounds Map', href: '#map' },
     { label: 'Spotlights', href: '#spotlights' },
+    { label: '50 States Guide', href: '#states-directory' },
     { label: 'FAQ', href: '#faq' },
   ];
 

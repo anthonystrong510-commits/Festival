@@ -1,5 +1,6 @@
 import express from 'express';
 import path from 'path';
+import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
 import nodemailer from 'nodemailer';
 
@@ -592,6 +593,25 @@ app.post('/api/send-batch-invoices', async (req, res) => {
     totalSent: results.filter(r => r.status === 'sent').length,
     results
   });
+});
+
+// 3. SEO Sitemap & Robots endpoints
+app.get('/sitemap.xml', (req, res) => {
+  const sitemapPath = path.join(process.cwd(), 'public', 'sitemap.xml');
+  if (fs.existsSync(sitemapPath)) {
+    res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+    return res.sendFile(sitemapPath);
+  }
+  return res.status(404).send('Sitemap not found');
+});
+
+app.get('/robots.txt', (req, res) => {
+  const robotsPath = path.join(process.cwd(), 'public', 'robots.txt');
+  if (fs.existsSync(robotsPath)) {
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    return res.sendFile(robotsPath);
+  }
+  return res.status(404).send('Robots.txt not found');
 });
 
 // 4. Vite Middleware / Production Static serving

@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+# Direct Google & Major Search Engines to XML Sitemap
+Sitemap: https://columbiamarket.org/sitemap.xml

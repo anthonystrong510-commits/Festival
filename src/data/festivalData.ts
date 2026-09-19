@@ -548,41 +548,152 @@ export const VENDOR_SPOTLIGHTS: VendorSpotlight[] = [
   },
 ];
 
-export const VENDOR_POLICIES_FAQ = [
+export interface FaqItem {
+  q: string;
+  a: string;
+  category: 'Registration & Pricing' | 'Booth Setup & Logistics' | 'Electrical & Utilities' | 'Food Trucks & Health Permits' | 'Taxes, Permits & 50-State Rules' | 'Payments & Invoicing' | 'Attendee & General Info';
+  keywords: string[];
+}
+
+export const VENDOR_POLICIES_FAQ: FaqItem[] = [
+  // 1. Registration & Pricing
   {
-    q: 'What are the canopy and weather safety requirements (Tent Weights)?',
-    a: 'All 10×10 and canopy structures MUST be securely weighted with a minimum of 20–30 lbs per tent leg using sandbags, water weights, or heavy canopy weight plates. Staking into hard surfaces or paved walkways is prohibited to preserve grounds.',
+    category: 'Registration & Pricing',
+    q: 'How do I apply for a vendor booth space and what is the approval process?',
+    a: 'Vendors can submit an application online via our Vendor Booking Portal. Applications are juried on a rolling basis to ensure category balance and prevent product oversaturation. Once reviewed (typically within 24–48 hours), approved vendors receive an official booking confirmation email with an itemized invoice and booth placement assignment.',
+    keywords: ['vendor application', 'booth registration', 'jury process', 'artisan festival booking', 'small business pop-up']
   },
   {
-    q: 'What are the event operating hours and booth staffing rules?',
-    a: 'For visitor safety and community experience, all vendor booths must be completely set up and ready 15 minutes before the daily opening bell. Booths must remain open, active, and staffed throughout all official festival operating hours.',
+    category: 'Registration & Pricing',
+    q: 'Can out-of-state vendors apply from anywhere in the United States?',
+    a: 'Yes! We actively welcome traveling artisans, craftsmen, independent brands, and food trucks from all 50 US states. Our operations team provides assistance with transient seller licenses, local tax registration guidelines, and dedicated load-in logistics for out-of-town participants.',
+    keywords: ['out of state vendors', 'traveling artisans', 'nationwide vendor directory', 'craft fair circuit', '50 states vendor']
   },
   {
-    q: 'What is the load-in, setup, and restock schedule?',
-    a: 'Designated morning load-in windows with vehicle drop-off access are provided daily prior to festival opening. Vehicles must be moved to designated vendor parking lots immediately after unloading before setting up displays.',
+    category: 'Registration & Pricing',
+    q: 'What booth sizes are available and what are the daily space rates?',
+    a: 'We offer multiple footprint tiers: Standard 10×10 Canopy Space ($70/day), Double 10×20 Artisan Pavilion ($100/day), Corner / High-Footfall Main Street Booth ($95/day), Gourmet Food Truck / Concession Space ($110/day), Mobile Beverage & Espresso Cart ($65/day), and Non-Profit Community Info Table ($35/day). Multi-day discounts apply automatically.',
+    keywords: ['booth rates', '10x10 booth', '10x20 double booth', 'food truck space fee', 'festival pricing']
   },
   {
-    q: 'What is the park cleanliness and waste policy (Leave No Trace)?',
-    a: 'Vendors are required to maintain a clean, attractive space throughout the event. All breakdown packaging, flattened cardboard boxes, and retail trash must be brought to designated park recycling and dumpster stations. Booth footprints must be left completely clean upon departure.',
+    category: 'Registration & Pricing',
+    q: 'What is the refund, transfer, and inclement weather cancellation policy?',
+    a: 'This is an outdoor rain-or-shine festival event. Cancellations requested in writing at least 14 days prior to opening day receive a 100% credit transfer toward any upcoming event edition or an 80% refund. In the rare event of extreme severe weather or municipal force majeure orders, full credit vouchers are issued to all vendors.',
+    keywords: ['refund policy', 'cancellation terms', 'rain or shine', 'weather policy', 'vendor credit transfer']
+  },
+
+  // 2. Booth Setup & Logistics
+  {
+    category: 'Booth Setup & Logistics',
+    q: 'What are the mandatory canopy, wind safety, and tent weight requirements?',
+    a: 'All 10×10 and 10×20 commercial pop-up canopy structures MUST be anchored with a certified minimum of 25–40 lbs of secure weight per tent leg (sandbags, cast-iron canopy plates, or water weight barrels). Ground staking into asphalt or brick plaza walkways is prohibited to protect municipal grounds. All tent fabrics should meet CPAI-84 or NFPA 701 fire retardant ratings.',
+    keywords: ['tent weights', 'canopy safety', 'wind standards', 'fire retardant tent', '40 lbs per leg', 'sandbags']
   },
   {
-    q: 'What are the food safety and health department requirements?',
-    a: 'All culinary and beverage vendors must possess and visibly display a valid Food Service Permit. Food vendors must adhere strictly to safe holding temperatures, maintain calibrated digital thermometers, and provide proper handwashing stations.',
+    category: 'Booth Setup & Logistics',
+    q: 'What equipment and furniture items are included with my booth reservation?',
+    a: 'Each reserved space includes 1 sturdy commercial 6-foot folding table and 2 heavy-duty event chairs. Double 10×20 spaces include 2 tables and 4 chairs. Vendors are responsible for bringing their own white/commercial canopy tent, weather sidewalls, tablecloths/linens, visual displays, and signage.',
+    keywords: ['included equipment', 'tables and chairs', 'folding table', 'display furniture', 'canopy provided']
   },
   {
-    q: 'What equipment and power provisions are included?',
-    a: 'Each registration includes 1 sturdy 6ft table and 2 chairs. Standard artisan booths are non-powered outdoor spaces. If your setup requires electricity, low-noise quiet inverter generators (<60 dB) or portable battery power banks are permitted with prior notification.',
+    category: 'Booth Setup & Logistics',
+    q: 'What is the daily load-in, staging, vehicle access, and restock schedule?',
+    a: 'Drive-up load-in is open daily between 8:00 AM and 12:30 PM on Day 1, and 8:00 AM to 9:45 AM on Days 2 & 3. Vehicles must unload merchandise at the designated loading dock bays and immediately be moved to the complimentary vendor parking lot before erecting booths. Mid-day vehicle traffic in pedestrian zones is strictly prohibited.',
+    keywords: ['load-in schedule', 'vendor parking', 'staging access', 'morning restock', 'drive-up unloading']
   },
   {
-    q: 'How does overnight security work for multi-day reservations?',
-    a: 'We provide dedicated on-site overnight security patrolling the festival grounds from closing until morning reopening. Vendors with multi-day reservations may leave their secured tent frames, tables, and heavy display units on site. We recommend packing away high-value items, electronics, and cash boxes overnight.',
+    category: 'Booth Setup & Logistics',
+    q: 'Is there overnight security provided for multi-day reservations?',
+    a: 'Yes. Dedicated, licensed overnight security guards patrol the gated perimeter and grounds from closing time until morning reopening. Multi-day vendors may safely leave securely weighted tent frames, sturdy tables, and heavy fixtures overnight. We recommend taking valuable cash boxes, credit card terminals, and fine jewelry with you overnight.',
+    keywords: ['overnight security', 'multi-day vendor', 'guarded grounds', 'perimeter patrol', 'merchandise safety']
+  },
+
+  // 3. Electrical & Utilities
+  {
+    category: 'Electrical & Utilities',
+    q: 'Is electrical power available at artisan booths and food truck spaces?',
+    a: 'Standard artisan booths are non-powered outdoor spaces. Optional 20-Amp 110V dedicated electrical hookup drops can be added to any reservation for $75. Food trucks and culinary trailers are provided with dedicated 30-Amp or 50-Amp NEMA connections upon request. Ultra-quiet inverter generators (<60 dB) are permitted with prior notification.',
+    keywords: ['festival electricity', '20 amp power', 'generator rules', 'quiet inverter', '50 amp hookup']
   },
   {
-    q: 'What are the aisle clearance and sound guidelines?',
-    a: 'To guarantee ADA compliance and clear emergency egress, all racks, merchandise, and signage must stay strictly within your assigned booth footprint. Any background acoustic music or sound demonstrations at individual booths must remain at ambient conversational volume (<70 dB).',
+    category: 'Electrical & Utilities',
+    q: 'Is high-speed Wi-Fi available for point-of-sale (POS) card processing?',
+    a: 'Yes, complimentary high-bandwidth vendor Wi-Fi networks (with WPA3 encryption) are provided throughout the festival grounds to ensure seamless Square, Clover, Shopify POS, Stripe, and Apple Pay transactions. We also recommend maintaining standard cellular data as a backup during peak festival attendance.',
+    keywords: ['festival wifi', 'POS internet', 'Square card reader', 'Shopify POS', 'cellular backup']
+  },
+
+  // 4. Food Trucks & Health Permits
+  {
+    category: 'Food Trucks & Health Permits',
+    q: 'What health department permits and food safety certifications are required for food vendors?',
+    a: 'All food trucks, mobile concessions, and prepared culinary vendors must hold a valid State/County Temporary Food Service Establishment (TFSE) permit and at least one Certified Food Protection Manager (ServSafe or equivalent). Vendors must maintain calibrated digital food thermometers, proper hot/cold holding equipment, and an accessible warm water handwashing station.',
+    keywords: ['food truck permit', 'health department inspection', 'ServSafe certification', 'handwashing station', 'TFSE permit']
   },
   {
-    q: 'How do I request accessible parking or special assistance?',
-    a: 'Accessible parking passes and close-proximity load-in assistance can be requested directly in the vendor application form. Our operations team will assign an optimal loading bay and ensure accessible routes to your booth location.',
+    category: 'Food Trucks & Health Permits',
+    q: 'What are the fire safety and grease/greywater disposal rules for cooking trucks?',
+    a: 'All food trucks with commercial frying or griddle equipment must carry a certified, inspected Class K wet-chemical fire extinguisher and a 2A-10BC dry chemical extinguisher. Dumping oil, grease, or greywater into municipal storm drains or onto park soil is strictly illegal. Dedicated grease bins and greywater recovery tanks are located behind Food Truck Row.',
+    keywords: ['fire extinguisher Class K', 'greywater disposal', 'grease container', 'food truck fire inspection']
   },
+  {
+    category: 'Food Trucks & Health Permits',
+    q: 'Can homemade cottage food producers sell under state cottage food laws?',
+    a: 'Yes! Artisans selling non-potentially hazardous baked goods, dried herbs, fruit jams, granola, and honey under State Cottage Food Laws are welcome. All packages must be properly labeled with all ingredients, net weight, producer name, contact info, and the mandatory cottage food disclosure statement.',
+    keywords: ['cottage food law', 'homemade baking', 'jam labeling', 'cottage bakery', 'artisan honey']
+  },
+
+  // 5. Taxes, Permits & 50-State Rules
+  {
+    category: 'Taxes, Permits & 50-State Rules',
+    q: 'How does sales tax work for local and out-of-state vendors selling at the festival?',
+    a: 'Vendors selling tangible merchandise must collect and remit state and local sales tax according to state department of revenue requirements. The festival provides each vendor with the official State Special Event Sales Tax Return (or Transient Vendor Form) at check-in. Out-of-state vendors can easily file single-event returns or utilize their existing resale certificates.',
+    keywords: ['sales tax compliance', 'transient vendor tax', 'special event tax return', 'out of state sales tax', 'resale certificate']
+  },
+  {
+    category: 'Taxes, Permits & 50-State Rules',
+    q: 'Do I need a general liability insurance certificate (COI)?',
+    a: 'We strongly recommend all participating businesses maintain a commercial general liability insurance policy ($1,000,000 occurrence / $2,000,000 aggregate) listing the festival operations as an additional insured. Affordable single-weekend event liability insurance is available through providers like ACT Insurance or FLIP.',
+    keywords: ['event insurance', 'certificate of insurance', 'COI requirements', 'ACT insurance', 'FLIP vendor insurance']
+  },
+
+  // 6. Payments & Invoicing
+  {
+    category: 'Payments & Invoicing',
+    q: 'What payment methods can vendors use to pay for booth spaces and invoices?',
+    a: 'Our secure payment portal supports all major payment channels: Credit and Debit Cards, Bank Wire / ACH Transfer, Zelle, CashApp ($Cashtag), and Kraken Pay. For cryptocurrency users, we natively accept USDT (TRC-20, ERC-20, Solana), Ethereum (ETH & ENS), and Bitcoin (BTC & Lightning Network) with instant cryptographic receipt generation.',
+    keywords: ['booth fee payment', 'credit card checkout', 'crypto festival payment', 'USDT TRC20', 'CashApp', 'Zelle payment']
+  },
+  {
+    category: 'Payments & Invoicing',
+    q: 'How do I access and print my official vendor invoice and receipt?',
+    a: 'Every approved application generates a unique invoice URL (e.g. /?invoice=INV-2026-001) linked directly to your confirmation email. From our Public Invoice Portal, you can review itemized booth fees, select your preferred payment gateway, submit proof of transaction, and download or print official accounting receipts.',
+    keywords: ['print vendor invoice', 'invoice checkout portal', 'receipt download', 'accounting documentation']
+  },
+
+  // 7. Attendee & General Info
+  {
+    category: 'Attendee & General Info',
+    q: 'Is festival admission free for the public and attendees?',
+    a: 'Yes! General admission to the festival grounds, artisan village, mainstage music concerts, and cultural performances is 100% free for all attendees and families. Complimentary Attendee RSVP passes are available online to receive event map updates, schedule alerts, and festival prize raffle tickets.',
+    keywords: ['free admission festival', 'free family event', 'free concert admission', 'attendee RSVP pass', 'festival tickets']
+  },
+  {
+    category: 'Attendee & General Info',
+    q: 'Are pets and service animals permitted on the festival grounds?',
+    a: 'Well-behaved, leashed pets (6-foot non-retractable leash) and certified service animals are warmly welcomed in outdoor marketplace walkways, artisan lawns, and park zones. Pet water hydration stations are stationed throughout the grounds. Owners are responsible for cleaning up after their pets.',
+    keywords: ['pet friendly festival', 'dogs allowed', 'leashed pets', 'service animals', 'dog friendly craft market']
+  },
+  {
+    category: 'Attendee & General Info',
+    q: 'What parking and public transit options are available for attendees?',
+    a: 'Free community parking is available in surrounding fairgrounds lots and designated event parking garages, with complimentary accessible ADA shuttles running continuously to the main entrance gates. Bike racks and designated rideshare (Uber/Lyft) pickup drop-off points are located at the North Gate.',
+    keywords: ['festival parking', 'free parking lot', 'ADA accessible parking', 'rideshare dropoff', 'shuttle service']
+  },
+  {
+    category: 'Attendee & General Info',
+    q: 'What accessibility accommodations (ADA compliance) are in place?',
+    a: 'The entire festival grounds, artisan aisles, restrooms, and food truck concourses feature paved, wide, level pathways designed for full ADA wheelchair, scooter, and stroller accessibility. Reserved ADA parking spaces are situated adjacent to the primary entrance pavilion.',
+    keywords: ['ADA accessible festival', 'wheelchair friendly', 'accessible restrooms', 'stroller friendly', 'paved walkways']
+  }
 ];
+

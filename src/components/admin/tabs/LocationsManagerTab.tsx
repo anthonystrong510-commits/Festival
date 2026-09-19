@@ -22,7 +22,10 @@ import {
   Tag,
   ArrowUpDown,
   RefreshCw,
-  ExternalLink
+  ExternalLink,
+  Navigation,
+  Flame,
+  ArrowRight
 } from 'lucide-react';
 import { USA_STATES_CITIES_DATA, UsaStateMarket } from '../../../data/usaStatesCitiesData';
 import { EventLocationMarket, CustomCityEntry } from '../../../types';
@@ -34,7 +37,10 @@ import {
   subscribeCustomCities,
   saveCustomCity,
   deleteCustomCity,
-  formatEventDate
+  formatEventDate,
+  generateDateRangeList,
+  formatEventDateRange,
+  getCitiesForState
 } from '../../../lib/locationMarketService';
 import { TypesOfVendorBadge } from '../../TypesOfVendorBadge';
 
@@ -58,10 +64,20 @@ export function LocationsManagerTab() {
   // New/Editing Location Form State
   const [formTitle, setFormTitle] = useState('');
   const [formStateCode, setFormStateCode] = useState('SC');
-  const [formCityName, setFormCityName] = useState('');
+  const [formCityName, setFormCityName] = useState('Columbia');
+  const [isCustomCityInput, setIsCustomCityInput] = useState(false);
+  const [customCityInputText, setCustomCityInputText] = useState('');
   const [formVenueName, setFormVenueName] = useState('');
   const [formAddress, setFormAddress] = useState('');
+  const [formZipCode, setFormZipCode] = useState('');
+  const [formMapUrl, setFormMapUrl] = useState('');
   const [formDescription, setFormDescription] = useState('');
+
+  // Date Selection State (Date Range & Non-stop support)
+  const [formDateMode, setFormDateMode] = useState<'range' | 'specific'>('range');
+  const [formStartDate, setFormStartDate] = useState('2026-10-02');
+  const [formEndDate, setFormEndDate] = useState('2026-10-11');
+  const [formIsNonStop, setFormIsNonStop] = useState(true);
   const [formDates, setFormDates] = useState<string[]>(['2026-10-02', '2026-10-03', '2026-10-04']);
   const [formNewDateInput, setFormNewDateInput] = useState('');
   const [formDays, setFormDays] = useState<Array<'fri' | 'sat' | 'sun'>>(['fri', 'sat', 'sun']);
@@ -75,7 +91,10 @@ export function LocationsManagerTab() {
   const [bulkDays, setBulkDays] = useState<Array<'fri' | 'sat' | 'sun'>>(['fri', 'sat', 'sun']);
   const [bulkDates, setBulkDates] = useState<string[]>(['2026-10-02', '2026-10-03', '2026-10-04']);
   const [bulkNewDateInput, setBulkNewDateInput] = useState('');
-  const [bulkActionType, setBulkActionType] = useState<'replace_days' | 'replace_dates' | 'append_dates' | 'set_both'>('set_both');
+  const [bulkStartDate, setBulkStartDate] = useState('2026-10-02');
+  const [bulkEndDate, setBulkEndDate] = useState('2026-10-11');
+  const [bulkIsNonStop, setBulkIsNonStop] = useState(true);
+  const [bulkActionType, setBulkActionType] = useState<'set_range' | 'replace_days' | 'replace_dates' | 'append_dates' | 'set_both'>('set_range');
   const [isProcessingBulk, setIsProcessingBulk] = useState(false);
 
   // New Custom City Form State
@@ -136,16 +155,70 @@ export function LocationsManagerTab() {
     );
   };
 
+  // Handle Form State Change (cascades cities)
+  const handleFormStateChange = (newCode: string) => {
+    setFormStateCode(newCode);
+    setIsCustomCityInput(false);
+    setCustomCityInputText('');
+    const cities = getCitiesForState(newCode, customCities);
+    const newCity = cities[0] || '';
+    setFormCityName(newCity);
+    if (!editingLocation) {
+      setFormTitle(`2026 ${newCity} First Fridays & Marketplace`);
+    }
+  };
+
+  // Handle Form City Change
+  const handleFormCityChange = (cityNameVal: string) => {
+    if (cityNameVal === '__CUSTOM__') {
+      setIsCustomCityInput(true);
+      setCustomCityInputText('');
+      setFormCityName('');
+    } else {
+      setIsCustomCityInput(false);
+      setCustomCityInputText('');
+      setFormCityName(cityNameVal);
+      if (!editingLocation) {
+        setFormTitle(`2026 ${cityNameVal} First Fridays & Marketplace`);
+      }
+    }
+  };
+
+  // Handle Date Range Updates
+  const handleDateRangeUpdate = (start: string, end: string, isNonStop: boolean) => {
+    setFormStartDate(start);
+    setFormEndDate(end);
+    setFormIsNonStop(isNonStop);
+    if (start && end) {
+      const generated = generateDateRangeList(start, end);
+      setFormDates(generated);
+    }
+  };
+
   // Open Edit Location Modal
   const handleOpenEdit = (loc: EventLocationMarket) => {
     setEditingLocation(loc);
     setFormTitle(loc.title);
     setFormStateCode(loc.stateCode);
     setFormCityName(loc.cityName);
+    setIsCustomCityInput(false);
+    setCustomCityInputText('');
     setFormVenueName(loc.venueName);
     setFormAddress(loc.address || '');
+    setFormZipCode(loc.zipCode || '');
+    setFormMapUrl(loc.mapUrl || '');
     setFormDescription(loc.description);
-    setFormDates(loc.dates || ['2026-10-02']);
+    
+    // Date & Range setup
+    const initialDates = loc.dates && loc.dates.length > 0 ? loc.dates : ['2026-10-02'];
+    setFormDates(initialDates);
+    const startD = loc.startDate || initialDates[0];
+    const endD = loc.endDate || initialDates[initialDates.length - 1];
+    setFormStartDate(startD);
+    setFormEndDate(endD);
+    setFormIsNonStop(loc.isNonStop !== undefined ? loc.isNonStop : true);
+    setFormDateMode(loc.startDate || loc.dates?.length > 1 ? 'range' : 'specific');
+
     setFormDays(loc.days || ['fri', 'sat', 'sun']);
     setFormHours(loc.hours || '10:00 AM - 6:00 PM');
     setFormVendorTypes(loc.vendorTypesAccepted || ['Music', 'Art', 'Craft', 'Food', 'Commercial']);
@@ -159,16 +232,25 @@ export function LocationsManagerTab() {
   const handleOpenCreate = () => {
     setEditingLocation(null);
     const defaultState = selectedStateCode !== 'ALL' ? selectedStateCode : 'SC';
-    const stateObj = USA_STATES_CITIES_DATA.find(s => s.code === defaultState);
-    const defaultCity = stateObj?.top3Cities[0]?.name || 'Columbia';
+    const stateCities = getCitiesForState(defaultState, customCities);
+    const defaultCity = stateCities[0] || 'Columbia';
 
     setFormTitle(`2026 ${defaultCity} First Fridays & Marketplace`);
     setFormStateCode(defaultState);
     setFormCityName(defaultCity);
-    setFormVenueName('Downtown Promenade & Market Square');
-    setFormAddress('');
+    setIsCustomCityInput(false);
+    setCustomCityInputText('');
+    setFormVenueName('Downtown Promenade & Market Commons');
+    setFormAddress('1200 Main Street');
+    setFormZipCode('29201');
+    setFormMapUrl('');
     setFormDescription(`${defaultCity} Fall First Fridays & Weekend Marketplace. Featuring juried artisan maker booths, food trucks, craft creators, and regional acoustic music.`);
-    setFormDates(['2026-10-02', '2026-10-03', '2026-10-04']);
+    
+    setFormStartDate('2026-10-02');
+    setFormEndDate('2026-10-11');
+    setFormIsNonStop(true);
+    setFormDateMode('range');
+    setFormDates(generateDateRangeList('2026-10-02', '2026-10-11'));
     setFormDays(['fri', 'sat', 'sun']);
     setFormHours('10:00 AM - 6:00 PM');
     setFormVendorTypes(['Music', 'Art', 'Craft', 'Food', 'Commercial']);
@@ -181,7 +263,8 @@ export function LocationsManagerTab() {
   // Save Location
   const handleSaveLocation = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formCityName.trim()) {
+    const finalCity = isCustomCityInput ? customCityInputText.trim() : formCityName.trim();
+    if (!finalCity) {
       alert('City name is required.');
       return;
     }
@@ -189,17 +272,26 @@ export function LocationsManagerTab() {
     const stateObj = USA_STATES_CITIES_DATA.find(s => s.code === formStateCode);
     const stateName = stateObj?.name || formStateCode;
 
+    const computedDates = formDateMode === 'range' && formStartDate && formEndDate
+      ? generateDateRangeList(formStartDate, formEndDate)
+      : (formDates.length > 0 ? formDates : ['2026-10-02']);
+
     const payload: Partial<EventLocationMarket> & { cityName: string; stateCode: string } = {
       id: editingLocation?.id,
-      title: formTitle.trim() || `2026 ${formCityName} First Fridays`,
+      title: formTitle.trim() || `2026 ${finalCity} First Fridays`,
       stateCode: formStateCode,
       stateName,
-      cityName: formCityName.trim(),
-      venueName: formVenueName.trim() || 'Downtown',
+      cityName: finalCity,
+      venueName: formVenueName.trim() || `${finalCity} Festival Grounds`,
       address: formAddress.trim(),
+      zipCode: formZipCode.trim(),
+      mapUrl: formMapUrl.trim(),
       description: formDescription.trim(),
-      dates: formDates.length > 0 ? formDates : ['2026-10-02'],
-      days: formDays.length > 0 ? formDays : ['fri', 'sat'],
+      startDate: formDateMode === 'range' ? formStartDate : computedDates[0],
+      endDate: formDateMode === 'range' ? formEndDate : computedDates[computedDates.length - 1],
+      isNonStop: formDateMode === 'range' ? formIsNonStop : false,
+      dates: computedDates,
+      days: formDays.length > 0 ? formDays : ['fri', 'sat', 'sun'],
       hours: formHours,
       vendorTypesAccepted: formVendorTypes,
       boothPricePerDay: Number(formBoothPrice) || 75,
@@ -227,11 +319,18 @@ export function LocationsManagerTab() {
     setIsProcessingBulk(true);
 
     try {
+      const datesToApply = bulkActionType === 'set_range'
+        ? generateDateRangeList(bulkStartDate, bulkEndDate)
+        : bulkDates;
+
       await bulkUpdateLocationsDays(selectedLocationIds, {
         actionType: bulkActionType,
         days: bulkDays,
-        dates: bulkDates,
-        appendDates: bulkDates
+        dates: datesToApply,
+        appendDates: bulkDates,
+        startDate: bulkStartDate,
+        endDate: bulkEndDate,
+        isNonStop: bulkIsNonStop
       });
 
       setIsProcessingBulk(false);
@@ -695,48 +794,69 @@ export function LocationsManagerTab() {
 
             <form onSubmit={handleSaveLocation} className="space-y-4 text-xs">
               
-              {/* State and City Selector */}
+              {/* State and Cascading City Selector */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-[#5D584D] mb-1">State *</label>
+                  <label className="block font-bold text-[#5D584D] mb-1 flex items-center justify-between">
+                    <span>Select State *</span>
+                    <span className="text-[10px] font-normal text-[#8A8576]">50 US States + DC</span>
+                  </label>
                   <select
                     value={formStateCode}
-                    onChange={(e) => {
-                      const code = e.target.value;
-                      setFormStateCode(code);
-                      const s = USA_STATES_CITIES_DATA.find(st => st.code === code);
-                      if (s && s.top3Cities[0]) {
-                        setFormCityName(s.top3Cities[0].name);
-                        setFormTitle(`2026 ${s.top3Cities[0].name} First Fridays & Marketplace`);
-                      }
-                    }}
-                    className="w-full px-3 py-2.5 rounded-xl border border-[#E8E2D6] bg-[#FDFBF7] font-semibold"
+                    onChange={(e) => handleFormStateChange(e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-xl border border-[#E8E2D6] bg-[#FDFBF7] font-semibold text-xs"
                   >
                     {USA_STATES_CITIES_DATA.map((st) => (
                       <option key={st.code} value={st.code}>
-                        {st.name} ({st.code})
+                        {st.name} ({st.code}) - {st.region}
                       </option>
                     ))}
                   </select>
                 </div>
 
                 <div>
-                  <label className="block font-bold text-[#5D584D] mb-1">City Name *</label>
+                  <label className="block font-bold text-[#5D584D] mb-1 flex items-center justify-between">
+                    <span>Select City in {formStateCode} *</span>
+                    <span className="text-[10px] font-normal text-[#8A8576]">
+                      {getCitiesForState(formStateCode, customCities).length} cities available
+                    </span>
+                  </label>
+                  <select
+                    value={isCustomCityInput ? '__CUSTOM__' : formCityName}
+                    onChange={(e) => handleFormCityChange(e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-xl border border-[#E8E2D6] bg-[#FDFBF7] font-semibold text-xs"
+                  >
+                    {getCitiesForState(formStateCode, customCities).map((cName) => (
+                      <option key={cName} value={cName}>
+                        {cName}
+                      </option>
+                    ))}
+                    <option value="__CUSTOM__">+ Other / Enter Custom City Name...</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Custom City text input if '__CUSTOM__' is selected */}
+              {isCustomCityInput && (
+                <div className="p-3 rounded-2xl bg-amber-50/70 border border-amber-200">
+                  <label className="block font-bold text-amber-900 mb-1">
+                    Type Custom City Name for {formStateCode}:
+                  </label>
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Florence, Columbia, Houston"
-                    value={formCityName}
+                    placeholder="e.g. Greenville, Fort Mill, Beaufort"
+                    value={customCityInputText}
                     onChange={(e) => {
-                      setFormCityName(e.target.value);
+                      setCustomCityInputText(e.target.value);
                       if (!editingLocation) {
                         setFormTitle(`2026 ${e.target.value} First Fridays & Marketplace`);
                       }
                     }}
-                    className="w-full px-3 py-2.5 rounded-xl border border-[#E8E2D6] bg-[#FDFBF7]"
+                    className="w-full px-3 py-2 rounded-xl border border-amber-300 bg-white text-xs font-semibold"
                   />
                 </div>
-              </div>
+              )}
 
               {/* Event Title */}
               <div>
@@ -751,117 +871,268 @@ export function LocationsManagerTab() {
                 />
               </div>
 
-              {/* Venue Name & Address */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-[#5D584D] mb-1">Venue / Grounds Name *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Downtown Historic Main St & Riverfront"
-                    value={formVenueName}
-                    onChange={(e) => setFormVenueName(e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-xl border border-[#E8E2D6] bg-[#FDFBF7]"
-                  />
+              {/* DEDICATED LOCATION & VENUE ADDRESS SECTION */}
+              <div className="p-4 rounded-2xl bg-stone-50 border border-[#E8E2D6] space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b border-[#E8E2D6]/80">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-lg bg-[#5A5A40] text-white flex items-center justify-center">
+                      <MapPin className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-[#3D3A30] text-xs">Venue & Physical Location Address</h4>
+                      <p className="text-[10px] text-[#7A7566]">Specify exact event grounds, street address, and navigation details</p>
+                    </div>
+                  </div>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#EAE4D6] text-[#5A5A40] font-bold">
+                    {isCustomCityInput ? customCityInputText || 'Custom City' : formCityName}, {formStateCode}
+                  </span>
                 </div>
-                <div>
-                  <label className="block font-bold text-[#5D584D] mb-1">Address / Intersection</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. 1200 Main Street, Columbia, SC"
-                    value={formAddress}
-                    onChange={(e) => setFormAddress(e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-xl border border-[#E8E2D6] bg-[#FDFBF7]"
-                  />
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold text-[#5D584D] mb-1">Venue / Grounds Name *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Historic Riverfront Amphitheater & Plaza"
+                      value={formVenueName}
+                      onChange={(e) => setFormVenueName(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-[#E8E2D6] bg-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-[#5D584D] mb-1">Street Address / Intersection *</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 1200 Main Street, Suite 100"
+                      value={formAddress}
+                      onChange={(e) => setFormAddress(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-[#E8E2D6] bg-white"
+                    />
+                  </div>
                 </div>
-              </div>
 
-              {/* Location Description */}
-              <div>
-                <label className="block font-bold text-[#5D584D] mb-1">
-                  Location Description *
-                </label>
-                <textarea
-                  rows={3}
-                  required
-                  placeholder="Describe the marketplace, grounds, entertainment stages, artisan sections, and attendee highlights..."
-                  value={formDescription}
-                  onChange={(e) => setFormDescription(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-[#E8E2D6] bg-[#FDFBF7] leading-relaxed"
-                />
-              </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <label className="block font-bold text-[#5D584D] mb-1">City</label>
+                    <input
+                      type="text"
+                      readOnly
+                      value={isCustomCityInput ? customCityInputText : formCityName}
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-[#E8E2D6] bg-gray-100 text-gray-700 cursor-not-allowed font-medium"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-[#5D584D] mb-1">State</label>
+                    <input
+                      type="text"
+                      readOnly
+                      value={formStateCode}
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-[#E8E2D6] bg-gray-100 text-gray-700 cursor-not-allowed font-medium"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-[#5D584D] mb-1">ZIP Code</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 29201"
+                      value={formZipCode}
+                      onChange={(e) => setFormZipCode(e.target.value)}
+                      className="w-full px-2.5 py-1.5 rounded-lg border border-[#E8E2D6] bg-white font-mono"
+                    />
+                  </div>
+                </div>
 
-              {/* MULTIPLE DATES INPUT (CRITICAL REQUIREMENT) */}
-              <div className="p-3.5 rounded-2xl bg-[#F7F5EE] border border-[#E8E2D6] space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <label className="font-bold text-[#5A5A40] flex items-center gap-1.5 text-xs">
-                    <CalendarDays className="w-4 h-4" />
-                    <span>Multiple Event Dates ({formDates.length} configured):</span>
+                <div>
+                  <label className="block font-bold text-[#5D584D] mb-1">
+                    Location Description (Parking, Gates & Setup) *
                   </label>
-                  <span className="text-[11px] text-[#7A7566]">Events can span multiple dates</span>
-                </div>
-
-                {/* List of currently added dates */}
-                <div className="flex flex-wrap gap-2">
-                  {formDates.map((d) => (
-                    <span
-                      key={d}
-                      className="px-2.5 py-1 rounded-xl bg-white border border-[#D8D2C2] text-xs font-mono font-bold text-[#3D3A30] flex items-center gap-1.5 shadow-2xs"
-                    >
-                      <span>{formatEventDate(d)} ({d})</span>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveDateFromForm(d)}
-                        className="text-rose-500 hover:text-rose-700"
-                        title="Remove date"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    </span>
-                  ))}
-                </div>
-
-                {/* Add a Date Input & Quick Presets */}
-                <div className="flex items-center gap-2 pt-1 flex-wrap">
-                  <input
-                    type="date"
-                    value={formNewDateInput}
-                    onChange={(e) => setFormNewDateInput(e.target.value)}
-                    className="px-3 py-1.5 rounded-xl border border-[#E8E2D6] bg-white text-xs font-mono"
+                  <textarea
+                    rows={2}
+                    required
+                    placeholder="Detail artisan booth zones, public entrance gates, vendor check-in trailer, attendee parking garages..."
+                    value={formDescription}
+                    onChange={(e) => setFormDescription(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-[#E8E2D6] bg-white leading-relaxed"
                   />
-                  <button
-                    type="button"
-                    onClick={() => handleAddDateToForm(formNewDateInput)}
-                    className="px-3 py-1.5 rounded-xl bg-[#5A5A40] text-white font-bold text-xs hover:bg-[#464632]"
-                  >
-                    + Add Date
-                  </button>
+                </div>
+              </div>
 
-                  <div className="flex items-center gap-1.5 pl-2 text-[11px] text-[#7A7566]">
-                    <span>Presets:</span>
+              {/* DATE AND EVENT SELECTION (RANGE & NON-STOP SUPPORT) */}
+              <div className="p-4 rounded-2xl bg-[#F7F5EE] border border-[#E8E2D6] space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b border-[#E8E2D6]">
+                  <div>
+                    <label className="font-bold text-[#3D3A30] flex items-center gap-1.5 text-xs">
+                      <CalendarDays className="w-4 h-4 text-[#5A5A40]" />
+                      <span>Date & Event Selection</span>
+                    </label>
+                    <p className="text-[10px] text-[#7A7566]">Events can run non-stop continuously or on specific discrete dates</p>
+                  </div>
+
+                  {/* Mode Switcher */}
+                  <div className="flex bg-white/80 p-0.5 rounded-xl border border-[#D8D2C2]">
                     <button
                       type="button"
                       onClick={() => {
-                        handleAddDateToForm('2026-10-02');
-                        handleAddDateToForm('2026-10-03');
-                        handleAddDateToForm('2026-10-04');
+                        setFormDateMode('range');
+                        handleDateRangeUpdate(formStartDate, formEndDate, formIsNonStop);
                       }}
-                      className="px-2 py-1 rounded-lg bg-white border border-[#E8E2D6] hover:bg-[#EAE4D6]"
+                      className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                        formDateMode === 'range'
+                          ? 'bg-[#5A5A40] text-white shadow-xs'
+                          : 'text-[#6B6658] hover:text-[#3D3A30]'
+                      }`}
                     >
-                      Oct 2-4, 2026
+                      Date Range (Non-Stop)
                     </button>
                     <button
                       type="button"
-                      onClick={() => {
-                        handleAddDateToForm('2026-11-06');
-                        handleAddDateToForm('2026-11-07');
-                      }}
-                      className="px-2 py-1 rounded-lg bg-white border border-[#E8E2D6] hover:bg-[#EAE4D6]"
+                      onClick={() => setFormDateMode('specific')}
+                      className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                        formDateMode === 'specific'
+                          ? 'bg-[#5A5A40] text-white shadow-xs'
+                          : 'text-[#6B6658] hover:text-[#3D3A30]'
+                      }`}
                     >
-                      Nov 6-7, 2026
+                      Specific Dates ({formDates.length})
                     </button>
                   </div>
                 </div>
+
+                {/* DATE RANGE MODE */}
+                {formDateMode === 'range' ? (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block font-bold text-[#5D584D] mb-1">Event Start Date *</label>
+                        <input
+                          type="date"
+                          required
+                          value={formStartDate}
+                          onChange={(e) => handleDateRangeUpdate(e.target.value, formEndDate, formIsNonStop)}
+                          className="w-full px-3 py-2 rounded-xl border border-[#E8E2D6] bg-white font-mono text-xs"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block font-bold text-[#5D584D] mb-1">Event End Date *</label>
+                        <input
+                          type="date"
+                          required
+                          value={formEndDate}
+                          onChange={(e) => handleDateRangeUpdate(formStartDate, e.target.value, formIsNonStop)}
+                          className="w-full px-3 py-2 rounded-xl border border-[#E8E2D6] bg-white font-mono text-xs"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Non-Stop Continuous Toggle */}
+                    <div className="flex items-center justify-between p-2.5 rounded-xl bg-white border border-[#E8E2D6]">
+                      <label htmlFor="nonStopCheckbox" className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          id="nonStopCheckbox"
+                          type="checkbox"
+                          checked={formIsNonStop}
+                          onChange={(e) => handleDateRangeUpdate(formStartDate, formEndDate, e.target.checked)}
+                          className="w-4 h-4 rounded text-[#5A5A40] focus:ring-[#5A5A40]"
+                        />
+                        <div>
+                          <span className="font-bold text-[#3D3A30]">Event Runs Non-Stop Continuously</span>
+                          <p className="text-[10px] text-[#7A7566]">Runs active every single consecutive day in the selected date range</p>
+                        </div>
+                      </label>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        formIsNonStop ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-700'
+                      }`}>
+                        {formIsNonStop ? 'Continuous Event' : 'Periodic Range'}
+                      </span>
+                    </div>
+
+                    {/* Range Summary & Presets */}
+                    <div className="p-3 rounded-xl bg-[#EFECE4] border border-[#DDD7C8] space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-[#4D493D]">
+                          📅 {formatEventDateRange(formStartDate, formEndDate, formIsNonStop)}
+                        </span>
+                        <span className="text-[11px] font-semibold text-[#5A5A40]">
+                          {generateDateRangeList(formStartDate, formEndDate).length} consecutive dates
+                        </span>
+                      </div>
+
+                      {/* Quick presets */}
+                      <div className="flex items-center gap-1.5 flex-wrap pt-1 text-[11px]">
+                        <span className="text-[#7A7566]">Quick Presets:</span>
+                        <button
+                          type="button"
+                          onClick={() => handleDateRangeUpdate('2026-10-02', '2026-10-04', true)}
+                          className="px-2 py-1 rounded-lg bg-white border border-[#D8D2C2] hover:bg-stone-50 font-medium"
+                        >
+                          3-Day Weekend (Oct 2-4)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDateRangeUpdate('2026-10-02', '2026-10-06', true)}
+                          className="px-2 py-1 rounded-lg bg-white border border-[#D8D2C2] hover:bg-stone-50 font-medium"
+                        >
+                          5-Day Fair (Oct 2-6)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDateRangeUpdate('2026-10-02', '2026-10-11', true)}
+                          className="px-2 py-1 rounded-lg bg-white border border-[#D8D2C2] hover:bg-stone-50 font-medium"
+                        >
+                          10-Day Non-Stop (Oct 2-11)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDateRangeUpdate('2026-10-02', '2026-10-18', true)}
+                          className="px-2 py-1 rounded-lg bg-white border border-[#D8D2C2] hover:bg-stone-50 font-medium"
+                        >
+                          17-Day Autumn Expo (Oct 2-18)
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  /* SPECIFIC DISCRETE DATES MODE */
+                  <div className="space-y-2.5">
+                    <div className="flex flex-wrap gap-2">
+                      {formDates.map((d) => (
+                        <span
+                          key={d}
+                          className="px-2.5 py-1 rounded-xl bg-white border border-[#D8D2C2] text-xs font-mono font-bold text-[#3D3A30] flex items-center gap-1.5 shadow-2xs"
+                        >
+                          <span>{formatEventDate(d)} ({d})</span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveDateFromForm(d)}
+                            className="text-rose-500 hover:text-rose-700"
+                            title="Remove date"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-1 flex-wrap">
+                      <input
+                        type="date"
+                        value={formNewDateInput}
+                        onChange={(e) => setFormNewDateInput(e.target.value)}
+                        className="px-3 py-1.5 rounded-xl border border-[#E8E2D6] bg-white text-xs font-mono"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleAddDateToForm(formNewDateInput)}
+                        className="px-3 py-1.5 rounded-xl bg-[#5A5A40] text-white font-bold text-xs hover:bg-[#464632]"
+                      >
+                        + Add Date
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Days of Week and Hours */}
@@ -1027,6 +1298,19 @@ export function LocationsManagerTab() {
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
+                    onClick={() => setBulkActionType('set_range')}
+                    className={`p-2.5 rounded-xl text-left border transition-all col-span-2 ${
+                      bulkActionType === 'set_range'
+                        ? 'border-[#5A5A40] bg-[#5A5A40]/10 font-bold text-[#5A5A40]'
+                        : 'border-[#E8E2D6] bg-white text-[#6B6658]'
+                    }`}
+                  >
+                    <div className="font-bold">✨ Set Continuous Date Range (Non-Stop)</div>
+                    <div className="text-[10px] text-[#7A7566]">Set start date, end date, and continuous run across selected locations</div>
+                  </button>
+
+                  <button
+                    type="button"
                     onClick={() => setBulkActionType('set_both')}
                     className={`p-2.5 rounded-xl text-left border transition-all ${
                       bulkActionType === 'set_both'
@@ -1078,6 +1362,56 @@ export function LocationsManagerTab() {
                   </button>
                 </div>
               </div>
+
+              {/* Bulk Date Range Input */}
+              {bulkActionType === 'set_range' && (
+                <div className="p-3.5 rounded-2xl bg-[#F7F5EE] border border-[#E8E2D6] space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="font-bold text-[#5A5A40] block">
+                      Continuous Date Range (Applies to {selectedLocationIds.length} locations):
+                    </label>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block font-bold text-[#5D584D] mb-1">Start Date</label>
+                      <input
+                        type="date"
+                        value={bulkStartDate}
+                        onChange={(e) => setBulkStartDate(e.target.value)}
+                        className="w-full px-2.5 py-1.5 rounded-xl border border-[#E8E2D6] bg-white text-xs font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-bold text-[#5D584D] mb-1">End Date</label>
+                      <input
+                        type="date"
+                        value={bulkEndDate}
+                        onChange={(e) => setBulkEndDate(e.target.value)}
+                        className="w-full px-2.5 py-1.5 rounded-xl border border-[#E8E2D6] bg-white text-xs font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <label className="flex items-center gap-2 p-2 rounded-xl bg-white border border-[#E8E2D6] cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={bulkIsNonStop}
+                      onChange={(e) => setBulkIsNonStop(e.target.checked)}
+                      className="w-4 h-4 rounded text-[#5A5A40] focus:ring-[#5A5A40]"
+                    />
+                    <div>
+                      <span className="font-bold text-[#3D3A30]">Mark as Non-Stop Event</span>
+                      <p className="text-[10px] text-[#7A7566]">Runs continuous consecutive days</p>
+                    </div>
+                  </label>
+
+                  <div className="p-2 rounded-xl bg-[#EFECE4] text-[11px] text-[#4D493D] flex items-center justify-between">
+                    <span>📅 {formatEventDateRange(bulkStartDate, bulkEndDate, bulkIsNonStop)}</span>
+                    <span className="font-bold text-[#5A5A40]">{generateDateRangeList(bulkStartDate, bulkEndDate).length} Days</span>
+                  </div>
+                </div>
+              )}
 
               {/* Bulk Days Toggle */}
               {(bulkActionType === 'replace_days' || bulkActionType === 'set_both') && (

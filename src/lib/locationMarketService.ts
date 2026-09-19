@@ -11,6 +11,7 @@ import {
 } from 'firebase/firestore';
 import { db, cleanFirestoreData } from './firebase';
 import { EventLocationMarket, CustomCityEntry } from '../types';
+import { USA_STATES_CITIES_DATA } from '../data/usaStatesCitiesData';
 
 export const DEFAULT_EVENT_LOCATIONS: EventLocationMarket[] = [
   {
@@ -171,6 +172,84 @@ export function formatEventDate(dateStr: string): string {
   }
 }
 
+/**
+ * Generate an array of YYYY-MM-DD date strings between startDate and endDate (inclusive)
+ * Supports continuous, non-stop events spanning multiple consecutive days.
+ */
+export function generateDateRangeList(startDate: string, endDate: string): string[] {
+  if (!startDate) return [];
+  if (!endDate) return [startDate];
+
+  try {
+    const start = new Date(startDate + 'T00:00:00');
+    const end = new Date(endDate + 'T00:00:00');
+    if (isNaN(start.getTime()) || isNaN(end.getTime()) || start > end) {
+      return [startDate];
+    }
+
+    const dates: string[] = [];
+    const current = new Date(start);
+    let count = 0;
+    // Cap at 60 days to prevent excessive loops
+    while (current <= end && count < 60) {
+      const y = current.getFullYear();
+      const m = String(current.getMonth() + 1).padStart(2, '0');
+      const d = String(current.getDate()).padStart(2, '0');
+      dates.push(`${y}-${m}-${d}`);
+      current.setDate(current.getDate() + 1);
+      count++;
+    }
+    return dates;
+  } catch {
+    return [startDate];
+  }
+}
+
+/**
+ * Formats a date range e.g. "Oct 02, 2026 – Oct 11, 2026 (Non-Stop 10 Days)"
+ */
+export function formatEventDateRange(startDate?: string, endDate?: string, isNonStop?: boolean): string {
+  if (!startDate) return '';
+  if (!endDate || startDate === endDate) {
+    return `${formatEventDate(startDate)}${isNonStop ? ' (Non-Stop)' : ''}`;
+  }
+
+  const daysCount = generateDateRangeList(startDate, endDate).length;
+  const tag = isNonStop ? ` (${daysCount} Days Non-Stop)` : ` (${daysCount} Days)`;
+  return `${formatEventDate(startDate)} – ${formatEventDate(endDate)}${tag}`;
+}
+
+/**
+ * Returns all available cities for a given US State code (50 states + DC)
+ * Combines top 3 cities, cities over 200k, major cities, and any custom added cities.
+ */
+export function getCitiesForState(stateCode: string, customCities: CustomCityEntry[] = []): string[] {
+  if (!stateCode || stateCode === 'ALL') return [];
+  const state = USA_STATES_CITIES_DATA.find(s => s.code.toUpperCase() === stateCode.toUpperCase());
+  const set = new Set<string>();
+
+  if (state) {
+    if (state.top3Cities) {
+      state.top3Cities.forEach(c => set.add(c.name));
+    }
+    if (state.citiesOver200k) {
+      state.citiesOver200k.forEach(c => set.add(c.name));
+    }
+    if (state.majorCities) {
+      state.majorCities.forEach(c => set.add(c));
+    }
+  }
+
+  // Add custom cities saved for this state
+  if (customCities && customCities.length > 0) {
+    customCities
+      .filter(c => c.stateCode?.toUpperCase() === stateCode.toUpperCase())
+      .forEach(c => set.add(c.name));
+  }
+
+  return Array.from(set).sort((a, b) => a.localeCompare(b));
+}
+
 // -------------------------------------------------------------
 // EVENT LOCATIONS CRUD & BULK OPERATIONS
 // -------------------------------------------------------------
@@ -305,10 +384,13 @@ export async function deleteEventLocation(id: string): Promise<void> {
 export async function bulkUpdateLocationsDays(
   ids: string[],
   options: {
-    actionType: 'replace_days' | 'replace_dates' | 'append_dates' | 'set_both' | 'toggle_active';
+    actionType: 'replace_days' | 'replace_dates' | 'append_dates' | 'set_both' | 'set_range' | 'toggle_active';
     days?: Array<'fri' | 'sat' | 'sun'>;
     dates?: string[];
     appendDates?: string[];
+    startDate?: string;
+    endDate?: string;
+    isNonStop?: boolean;
     active?: boolean;
   }
 ): Promise<void> {
@@ -327,12 +409,20 @@ export async function bulkUpdateLocationsDays(
           item.days = [...options.days];
         } else if (options.actionType === 'replace_dates' && options.dates) {
           item.dates = [...options.dates].sort();
+        } else if (options.actionType === 'set_range' && options.startDate && options.endDate) {
+          item.startDate = options.startDate;
+          item.endDate = options.endDate;
+          item.isNonStop = options.isNonStop ?? true;
+          item.dates = generateDateRangeList(options.startDate, options.endDate);
         } else if (options.actionType === 'append_dates' && options.appendDates) {
           const merged = Array.from(new Set([...item.dates, ...options.appendDates])).sort();
           item.dates = merged;
         } else if (options.actionType === 'set_both') {
           if (options.days) item.days = [...options.days];
           if (options.dates) item.dates = [...options.dates].sort();
+          if (options.startDate) item.startDate = options.startDate;
+          if (options.endDate) item.endDate = options.endDate;
+          if (options.isNonStop !== undefined) item.isNonStop = options.isNonStop;
         } else if (options.actionType === 'toggle_active' && options.active !== undefined) {
           item.active = options.active;
         }
@@ -353,6 +443,15 @@ export async function bulkUpdateLocationsDays(
         if ((options.actionType === 'replace_dates' || options.actionType === 'set_both') && options.dates) {
           updatePayload.dates = options.dates;
         }
+        if (options.actionType === 'set_range' && options.startDate && options.endDate) {
+          updatePayload.startDate = options.startDate;
+          updatePayload.endDate = options.endDate;
+          updatePayload.isNonStop = options.isNonStop ?? true;
+          updatePayload.dates = generateDateRangeList(options.startDate, options.endDate);
+        }
+        if (options.startDate) updatePayload.startDate = options.startDate;
+        if (options.endDate) updatePayload.endDate = options.endDate;
+        if (options.isNonStop !== undefined) updatePayload.isNonStop = options.isNonStop;
         if (options.actionType === 'toggle_active' && options.active !== undefined) {
           updatePayload.active = options.active;
         }

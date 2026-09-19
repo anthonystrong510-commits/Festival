@@ -88,8 +88,17 @@ export interface ScheduleEvent {
   day: 'fri' | 'sat' | 'sun' | string;
   days?: Array<'fri' | 'sat' | 'sun'>; // Support multiple festival days
   dates?: string[]; // Support multiple specific dates
+  startDate?: string; // e.g. 2026-10-02
+  endDate?: string; // e.g. 2026-10-11
+  isNonStop?: boolean; // Non-stop continuous event
   time: string;
   title: string;
+  stateCode?: string;
+  stateName?: string;
+  cityName?: string;
+  venueName?: string;
+  address?: string;
+  zipCode?: string;
   location: string;
   locationDescription?: string; // Location descriptions
   description: string;
@@ -378,8 +387,13 @@ export interface EventLocationMarket {
   cityName: string;
   venueName: string;
   address?: string;
+  zipCode?: string;
+  mapUrl?: string;
   description: string;
   dates: string[]; // Multiple dates for this event/location
+  startDate?: string; // Continuous / date range start
+  endDate?: string; // Continuous / date range end
+  isNonStop?: boolean; // True if event runs non-stop continuously
   days: Array<'fri' | 'sat' | 'sun'>; // Days of event
   hours?: string;
   vendorTypesAccepted: string[]; // Music, Art, Craft, Food, Commercial

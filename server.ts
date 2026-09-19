@@ -614,6 +614,11 @@ app.get('/robots.txt', (req, res) => {
   return res.status(404).send('Robots.txt not found');
 });
 
+app.get('/google:id*.html', (req, res) => {
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  return res.send('google-site-verification: google_LCyabFA6V7PQWvdzvqqzEV48_Fg5i7n7XZ1ekbvJzM.html');
+});
+
 // 4. Vite Middleware / Production Static serving
 async function start() {
   if (process.env.NODE_ENV !== 'production') {

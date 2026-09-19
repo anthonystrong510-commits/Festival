@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { BOOTH_TIERS, EVENT_CONFIG } from '../data/festivalData';
 import { BoothId } from '../types';
+import { TypesOfVendorBadge } from './TypesOfVendorBadge';
 
 interface VendorBookingPortalProps {
   onOpenVendorModal: (boothId?: BoothId, days?: Array<'fri' | 'sat' | 'sun'>) => void;
@@ -103,6 +104,11 @@ export const VendorBookingPortal: React.FC<VendorBookingPortalProps> = ({ onOpen
                     <Sparkles className="w-3.5 h-3.5 text-[#5A5A40] shrink-0" />
                     <span>Festival directory listing & promotion</span>
                   </div>
+                </div>
+
+                {/* Types of Vendor */}
+                <div className="pt-2">
+                  <TypesOfVendorBadge label="Types of Vendor:" className="p-2.5 rounded-2xl bg-[#FDFBF7] border border-[#E8E2D6]" />
                 </div>
               </div>
             </div>

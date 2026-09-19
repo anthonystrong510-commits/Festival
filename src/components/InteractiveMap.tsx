@@ -12,6 +12,7 @@ import {
   Compass
 } from 'lucide-react';
 import { BOOTH_TIERS, EVENT_CONFIG } from '../data/festivalData';
+import { TypesOfVendorBadge } from './TypesOfVendorBadge';
 
 interface ZoneInfo {
   id: string;
@@ -242,6 +243,9 @@ export const InteractiveMap: React.FC = () => {
                 <p className="text-xs text-[#6B6658] leading-relaxed pt-1">
                   {currentZone.description}
                 </p>
+                <div className="pt-2 border-t border-[#E8E2D6]">
+                  <TypesOfVendorBadge label="Types of Vendor:" size="sm" />
+                </div>
               </div>
 
               {/* Quick Perks for this zone */}

@@ -13,6 +13,7 @@ import {
   Info
 } from 'lucide-react';
 import { EVENT_CONFIG, FESTIVAL_DAYS, FESTIVAL_LOCATION, SCHEDULE_EVENTS } from '../data/festivalData';
+import { TypesOfVendorBadge } from './TypesOfVendorBadge';
 
 export const ScheduleSection: React.FC = () => {
   const [selectedDayId, setSelectedDayId] = useState<'fri' | 'sat' | 'sun'>('fri');
@@ -212,6 +213,10 @@ END:VCALENDAR`;
                     <p className="text-xs sm:text-sm text-[#6B6658] leading-relaxed">
                       {evt.description}
                     </p>
+
+                    <div className="pt-2 border-t border-[#E8E2D6]/80">
+                      <TypesOfVendorBadge label="Types of Vendor:" size="sm" />
+                    </div>
                   </div>
                 ))}
               </div>

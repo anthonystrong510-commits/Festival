@@ -23,6 +23,7 @@ import { BOOTH_TIERS, EVENT_CONFIG, FESTIVAL_CONTACT_EMAIL, FESTIVAL_DAYS, MARKE
 import { BoothId, VendorFormData } from '../types';
 import { createVendorApplication } from '../lib/firebase';
 import { sendVendorApplicationReceivedEmail } from '../lib/emailService';
+import { TypesOfVendorBadge } from './TypesOfVendorBadge';
 
 interface VendorApplicationModalProps {
   isOpen: boolean;
@@ -395,6 +396,11 @@ Please review my registration and send confirmation and payment instructions to 
 
             <form onSubmit={handleSubmit} className="space-y-6">
               
+              {/* Accepted Vendor Types Badge with Green Checkboxes */}
+              <div className="p-3.5 rounded-2xl bg-[#FAF8F5] border border-[#E8E2D6]">
+                <TypesOfVendorBadge label="Types of Vendor Accepted:" size="md" />
+              </div>
+
               {/* SECTION 1: Booth Tier Selection */}
               <div>
                 <div className="flex items-center justify-between mb-2">

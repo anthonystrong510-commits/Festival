@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { EVENT_CONFIG, MARKET_CATEGORIES } from '../data/festivalData';
 import { MarketCategory } from '../types';
+import { TypesOfVendorBadge } from './TypesOfVendorBadge';
 
 const iconMap: Record<string, React.ReactNode> = {
   Palette: <Palette className="w-4 h-4" />,
@@ -218,6 +219,11 @@ export const FestivalOverview: React.FC<FestivalOverviewProps> = ({
                     </div>
                   ))}
                 </div>
+              </div>
+
+              {/* Types of Vendor */}
+              <div className="pt-2">
+                <TypesOfVendorBadge label="Types of Vendor:" className="p-2.5 rounded-2xl bg-white border border-[#E8E2D6]" />
               </div>
 
               {/* Action */}

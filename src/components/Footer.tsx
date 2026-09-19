@@ -1,5 +1,5 @@
 import React from 'react';
-import { Store, Mail, MapPin, Calendar, Clock, Heart, ShieldCheck, ArrowUp, ArrowRight, Ticket, Sun } from 'lucide-react';
+import { Store, Mail, MapPin, Calendar, Clock, Heart, ArrowUp, ArrowRight, Ticket, Sun } from 'lucide-react';
 import { EVENT_CONFIG, FESTIVAL_CONTACT_EMAIL, FESTIVAL_LOCATION } from '../data/festivalData';
 
 interface FooterProps {
@@ -135,24 +135,6 @@ export const Footer: React.FC<FooterProps> = ({
             <a href="#states-directory" className="hover:text-[#5A5A40] transition-colors">50 States Guide</a>
             <a href="#faq" className="hover:text-[#5A5A40] transition-colors">Policies</a>
             <a href="/sitemap.xml" target="_blank" rel="noopener noreferrer" className="hover:text-[#5A5A40] transition-colors font-mono text-[11px]">sitemap.xml</a>
-            {onNavigateToAdmin ? (
-              <button
-                onClick={onNavigateToAdmin}
-                className="inline-flex items-center gap-1 text-[11px] font-bold text-[#5A5A40] hover:text-[#3D3A30] px-2.5 py-1 rounded-full bg-[#EAE4D6] hover:bg-[#E0D9C8] transition-colors"
-                title="Access Festival Organizer Admin Panel"
-              >
-                <ShieldCheck className="w-3.5 h-3.5" />
-                <span>KingAdmin Portal</span>
-              </button>
-            ) : (
-              <a
-                href="/kingadmin"
-                className="inline-flex items-center gap-1 text-[11px] font-bold text-[#5A5A40] hover:text-[#3D3A30] px-2.5 py-1 rounded-full bg-[#EAE4D6] hover:bg-[#E0D9C8] transition-colors"
-              >
-                <ShieldCheck className="w-3.5 h-3.5" />
-                <span>KingAdmin Portal</span>
-              </a>
-            )}
             <button
               onClick={scrollToTop}
               className="p-2 rounded-full bg-white text-[#5A5A40] hover:text-white hover:bg-[#5A5A40] border border-[#E8E2D6] transition-colors ml-2"

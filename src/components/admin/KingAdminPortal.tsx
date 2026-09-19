@@ -49,6 +49,7 @@ import { PaymentConfigTab } from './tabs/PaymentConfigTab';
 import { AttendeeRsvpsTab } from './tabs/AttendeeRsvpsTab';
 import { BoothsManagerTab } from './tabs/BoothsManagerTab';
 import { ScheduleManagerTab } from './tabs/ScheduleManagerTab';
+import { LocationsManagerTab } from './tabs/LocationsManagerTab';
 import { EmailCenterTab } from './tabs/EmailCenterTab';
 import { SmtpConfigTab } from './tabs/SmtpConfigTab';
 import { FestivalSettingsTab } from './tabs/FestivalSettingsTab';
@@ -245,6 +246,7 @@ export function KingAdminPortal({ onExitAdmin }: KingAdminPortalProps) {
     attendees: { title: 'Attendee RSVPs & Fast-Passes', subtitle: 'Visitor passes, attendance forecasts & gate check-ins' },
     booths: { title: 'Booth Spaces & Pricing Tiers', subtitle: 'Dimension limits, equipment inclusions & daily fees' },
     schedule: { title: 'Festival Schedule & Lineup', subtitle: 'Stage entertainment, artisan demos & hourly agenda' },
+    locations: { title: 'States, Cities & Locations Management', subtitle: 'Manage locations across 50 states, edit descriptions & multiple dates, and bulk edit days' },
     emails: { title: 'Anti-Spam Email Templates', subtitle: 'Visual email designer with live spam score meter & variables' },
     smtp: { title: 'SMTP Mail Server & DNS', subtitle: 'Outbound credentials, SPF/DKIM records & connection testing' },
     settings: { title: 'Festival Identity Settings', subtitle: 'Event titles, dates, grounds address & admission terms' }
@@ -401,6 +403,10 @@ export function KingAdminPortal({ onExitAdmin }: KingAdminPortalProps) {
 
             {currentTab === 'schedule' && (
               <ScheduleManagerTab />
+            )}
+
+            {currentTab === 'locations' && (
+              <LocationsManagerTab />
             )}
 
             {currentTab === 'emails' && (

@@ -16,7 +16,8 @@ import {
   Sparkles,
   FileText,
   WalletCards,
-  Coins
+  Coins,
+  MapPin
 } from 'lucide-react';
 import { AdminTab } from '../../types';
 
@@ -75,6 +76,7 @@ export function AdminSidebar({
     },
     { id: 'booths', label: 'Booth Spaces & Pricing', icon: Layers },
     { id: 'schedule', label: 'Schedule & Events', icon: Calendar },
+    { id: 'locations', label: 'States, Cities & Locations', icon: MapPin },
     { id: 'emails', label: 'Email Center & Templates', icon: Mail },
     { id: 'smtp', label: 'SMTP & Mail Server', icon: Server },
     { id: 'settings', label: 'Festival Settings', icon: Settings },

@@ -63,6 +63,16 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
+    // Event Locations, States & Cities
+    match /event_locations/{locationId} {
+      allow read, write: if true;
+    }
+
+    // Custom States & Cities
+    match /custom_locations/{docId} {
+      allow read, write: if true;
+    }
+
     // Admins Collection
     match /admins/{adminId} {
       allow read, write: if true;

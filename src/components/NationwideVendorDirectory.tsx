@@ -16,11 +16,15 @@ import {
   RotateCcw,
   CheckCircle2,
   TrendingUp,
-  Layers
+  Layers,
+  Calendar,
+  CalendarDays,
+  Clock
 } from 'lucide-react';
 import { USA_STATES_CITIES_DATA, ALL_US_CITIES_OVER_200K, UsaStateMarket, CityPopulationInfo } from '../data/usaStatesCitiesData';
-import { BoothId } from '../types';
+import { BoothId, EventLocationMarket } from '../types';
 import { TypesOfVendorBadge, VENDOR_TYPES, GreenCheckboxIcon } from './TypesOfVendorBadge';
+import { subscribeEventLocations, formatEventDate } from '../lib/locationMarketService';
 
 interface NationwideVendorDirectoryProps {
   onOpenVendorModal: (boothId?: BoothId) => void;
@@ -37,6 +41,14 @@ export const NationwideVendorDirectory: React.FC<NationwideVendorDirectoryProps>
   const [onlyOver200kFilter, setOnlyOver200kFilter] = useState<boolean>(false);
   const [expandedCitiesStateCode, setExpandedCitiesStateCode] = useState<Record<string, boolean>>({});
   const [selectedVendorTypes, setSelectedVendorTypes] = useState<string[]>([...VENDOR_TYPES]);
+  const [eventLocations, setEventLocations] = useState<EventLocationMarket[]>([]);
+
+  useEffect(() => {
+    const unsub = subscribeEventLocations((locs) => {
+      setEventLocations(locs);
+    });
+    return () => unsub();
+  }, []);
 
   const handleToggleVendorType = (type: string) => {
     setSelectedVendorTypes((prev) =>
@@ -706,6 +718,58 @@ export const NationwideVendorDirectory: React.FC<NationwideVendorDirectoryProps>
                       </div>
                     </div>
                   </div>
+
+                  {/* Scheduled Multi-Date Event Locations in this State */}
+                  {(() => {
+                    const stateLocs = eventLocations.filter(l => l.stateCode === state.code && l.active);
+                    if (stateLocs.length === 0) return null;
+                    return (
+                      <div className="pt-3 border-t border-[#E8E2D6] space-y-2">
+                        <div className="flex items-center justify-between text-[11px] font-bold text-[#5A5A40] uppercase tracking-wider">
+                          <span className="flex items-center gap-1">
+                            <CalendarDays className="w-3.5 h-3.5" />
+                            <span>Scheduled Market Locations ({stateLocs.length}):</span>
+                          </span>
+                        </div>
+
+                        <div className="space-y-2">
+                          {stateLocs.map((loc) => (
+                            <div key={loc.id} className="p-3 rounded-2xl bg-[#FAF8F5] border border-[#E8E2D6] space-y-1.5 text-xs">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="font-bold text-[#3D3A30] text-[12px]">{loc.title}</span>
+                                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-[#5A5A40] text-white shrink-0">
+                                  {loc.cityName}
+                                </span>
+                              </div>
+
+                              <div className="flex items-center gap-1.5 text-[11px] text-[#7A7566]">
+                                <MapPin className="w-3 h-3 text-[#5A5A40] shrink-0" />
+                                <span className="truncate">{loc.venueName}</span>
+                              </div>
+
+                              <p className="text-[11px] text-[#5D584D] leading-snug line-clamp-2">
+                                {loc.description}
+                              </p>
+
+                              {/* Multiple Dates Display */}
+                              <div className="flex items-center gap-1 flex-wrap pt-0.5">
+                                <span className="text-[10px] font-bold text-[#5A5A40] mr-1">Multiple Dates:</span>
+                                {loc.dates && loc.dates.length > 0 ? (
+                                  loc.dates.map((d) => (
+                                    <span key={d} className="px-2 py-0.5 rounded-md bg-white border border-[#D8D2C2] text-[10.5px] font-mono font-semibold text-[#3D3A30]">
+                                      {formatEventDate(d)}
+                                    </span>
+                                  ))
+                                ) : (
+                                  <span className="text-[10.5px] text-[#8A8576]">TBD</span>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   {/* Detailed Accordion Section */}
                   {isExpanded && (

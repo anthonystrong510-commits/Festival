@@ -85,12 +85,16 @@ export interface AttendeeRsvpRecord extends AttendeeFormData {
 
 export interface ScheduleEvent {
   id: string;
-  day: 'fri' | 'sat' | 'sun';
+  day: 'fri' | 'sat' | 'sun' | string;
+  days?: Array<'fri' | 'sat' | 'sun'>; // Support multiple festival days
+  dates?: string[]; // Support multiple specific dates
   time: string;
   title: string;
   location: string;
+  locationDescription?: string; // Location descriptions
   description: string;
-  type: 'entertainment' | 'food' | 'market' | 'workshop' | 'kids';
+  type?: 'entertainment' | 'food' | 'market' | 'workshop' | 'kids';
+  category?: string;
 }
 
 export interface MarketCategory {
@@ -366,6 +370,36 @@ export interface CryptoTreasuryOverview {
   assets: CryptoTreasuryAsset[];
 }
 
+export interface EventLocationMarket {
+  id: string;
+  title: string;
+  stateCode: string;
+  stateName: string;
+  cityName: string;
+  venueName: string;
+  address?: string;
+  description: string;
+  dates: string[]; // Multiple dates for this event/location
+  days: Array<'fri' | 'sat' | 'sun'>; // Days of event
+  hours?: string;
+  vendorTypesAccepted: string[]; // Music, Art, Craft, Food, Commercial
+  boothPricePerDay?: number;
+  totalBoothsCount?: number;
+  active: boolean;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface CustomCityEntry {
+  id: string;
+  name: string;
+  stateCode: string;
+  population: string;
+  populationNumber: number;
+  isOver200k?: boolean;
+  notes?: string;
+}
+
 export type AdminTab = 
   | 'dashboard' 
   | 'applications' 
@@ -374,6 +408,7 @@ export type AdminTab =
   | 'attendees' 
   | 'booths' 
   | 'schedule' 
+  | 'locations'
   | 'emails' 
   | 'smtp' 
   | 'settings';

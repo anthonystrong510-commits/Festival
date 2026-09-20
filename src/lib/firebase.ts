@@ -527,6 +527,11 @@ export const DEFAULT_FESTIVAL_CONFIG: FestivalConfigData = {
   contactEmail: 'organizers@festivalmarket.org',
   freeAdmission: true,
   active: true,
+  siteDomain: 'https://skysevents.online',
+  seoTitle: 'Community Vendor Marketplace, Artisan Expo & Dating Singles Festival',
+  seoDescription: 'Premier 3-day community vendor marketplace, artisan craft fair, food truck rally, live music, and evening singles mixers & date night strolls. Free attendee passes and vendor bookings open nationwide.',
+  seoKeywords: 'community vendor market, artisan craft fair, food truck festival, local business pop-up, 50 states vendor directory, festival ticket reservation, date night festival, singles mixer, speed dating pop-up',
+  datingKeywords: 'dating events, singles mixer, speed dating festival, couples date night ideas, singles meetup, local dating fair, romantic craft market, adult singles events, dating pop-up booth',
   updatedAt: new Date().toISOString()
 };
 

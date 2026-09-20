@@ -149,6 +149,11 @@ export interface FestivalConfigData {
   contactEmail: string;
   freeAdmission: boolean;
   active: boolean;
+  siteDomain?: string;
+  seoTitle?: string;
+  seoDescription?: string;
+  seoKeywords?: string;
+  datingKeywords?: string;
   updatedAt?: string;
 }
 

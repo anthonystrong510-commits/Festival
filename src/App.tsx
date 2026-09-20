@@ -16,8 +16,9 @@ import { Footer } from './components/Footer';
 import { KingAdminPortal } from './components/admin/KingAdminPortal';
 import { PublicInvoiceView } from './components/checkout/PublicInvoiceView';
 import { Store, Ticket } from 'lucide-react';
-import { BoothId } from './types';
+import { BoothId, FestivalConfigData } from './types';
 import { updateDocumentHead } from './lib/headManager';
+import { subscribeFestivalConfig, DEFAULT_FESTIVAL_CONFIG } from './lib/firebase';
 
 function getInvoiceFromUrl(): string | null {
   try {
@@ -50,47 +51,72 @@ export default function App() {
   });
 
   const [activeInvoiceId, setActiveInvoiceId] = useState<string | null>(() => getInvoiceFromUrl());
+  const [festivalConfig, setFestivalConfig] = useState<FestivalConfigData>(DEFAULT_FESTIVAL_CONFIG);
 
   const [attendeeModalOpen, setAttendeeModalOpen] = useState(false);
   const [vendorModalOpen, setVendorModalOpen] = useState(false);
   const [modalBoothId, setModalBoothId] = useState<BoothId>('tent-10x10');
   const [modalDays, setModalDays] = useState<Array<'fri' | 'sat' | 'sun'>>(['fri', 'sat', 'sun']);
 
+  // Subscribe to persistent festival config from Firebase
+  useEffect(() => {
+    const unsub = subscribeFestivalConfig((cfg) => {
+      if (cfg) setFestivalConfig(cfg);
+    });
+    return () => unsub();
+  }, []);
+
   // Dynamic Document Head / SEO Updates for public and admin navigation
   useEffect(() => {
+    const customOrigin = festivalConfig?.siteDomain?.trim();
     if (isAdminView) {
       updateDocumentHead({
         title: 'KingAdmin Operations Suite | Community Vendor Marketplace & Festival Expo',
         description: 'Secure administrator control center for managing vendor applications, booth space maps, attendee passes, anti-spam email templates, and SMTP deliverability.',
         canonicalPath: '/kingadmin',
-        noIndex: true
+        noIndex: true,
+        customOrigin
       });
     } else if (activeInvoiceId) {
       updateDocumentHead({
         title: `Invoice Checkout Portal | Columbia Community Vendor Marketplace`,
         description: 'Official payment portal for reserved vendor booth space, electrical hookups, and festival showcase badges.',
         canonicalPath: `/?invoice=${encodeURIComponent(activeInvoiceId)}`,
-        noIndex: true
+        noIndex: true,
+        customOrigin
       });
     } else {
+      const extraKeywords: string[] = [];
+      if (festivalConfig?.seoKeywords) {
+        extraKeywords.push(...festivalConfig.seoKeywords.split(',').map(s => s.trim()).filter(Boolean));
+      }
+      if (festivalConfig?.datingKeywords) {
+        extraKeywords.push(...festivalConfig.datingKeywords.split(',').map(s => s.trim()).filter(Boolean));
+      }
+
       updateDocumentHead({
-        title: 'Community Vendor Marketplace & Festival Expo | Artisan, Food & Music Showcase',
-        description: 'Join us for a 3-day premier community marketplace bringing together artisan makers, farmers, food trucks, craft beverage creators, and live entertainment. Free passes available.',
+        title: festivalConfig?.seoTitle || 'Community Vendor Marketplace, Artisan Expo & Dating Singles Festival',
+        description: festivalConfig?.seoDescription || 'Join us for a 3-day premier community marketplace bringing together artisan makers, farmers, food trucks, and evening singles mixers & date night strolls. Free passes available.',
         canonicalPath: '/',
         noIndex: false,
+        customOrigin,
         keywords: [
+          ...extraKeywords,
           'community marketplace',
           'artisan craft festival',
           'vendor application',
           'food truck rally',
           'columbia festival expo',
           'outdoor farmers market',
-          'local business showcase',
-          'live music festival'
+          'dating events',
+          'singles mixer festival',
+          'speed dating pop-up',
+          'date night festival',
+          'singles meetups'
         ]
       });
     }
-  }, [isAdminView, activeInvoiceId]);
+  }, [isAdminView, activeInvoiceId, festivalConfig]);
 
   // Sync URL changes and popstate (e.g. Back button or Direct URL input)
   useEffect(() => {

@@ -20,10 +20,10 @@ import {
   Eye
 } from 'lucide-react';
 import { BOOTH_TIERS, EVENT_CONFIG, FESTIVAL_CONTACT_EMAIL, FESTIVAL_DAYS, MARKET_CATEGORIES } from '../data/festivalData';
-import { BoothId, VendorFormData } from '../types';
+import { BoothId, VendorFormData, VENDOR_KIND_OPTIONS } from '../types';
 import { createVendorApplication } from '../lib/firebase';
 import { sendVendorApplicationReceivedEmail } from '../lib/emailService';
-import { TypesOfVendorBadge } from './TypesOfVendorBadge';
+import { GreenCheckboxIcon } from './TypesOfVendorBadge';
 
 interface VendorApplicationModalProps {
   isOpen: boolean;
@@ -47,6 +47,7 @@ export const VendorApplicationModal: React.FC<VendorApplicationModalProps> = ({
     email: '',
     phone: '',
     website: '',
+    vendorKind: 'Certified Farmer',
     category: 'Handmade Crafts & Fine Art',
     selectedBoothId: initialBoothId,
     selectedDays: initialDays,
@@ -108,7 +109,12 @@ export const VendorApplicationModal: React.FC<VendorApplicationModalProps> = ({
   if (!isOpen) return null;
 
   const selectedTier = BOOTH_TIERS.find((b) => b.id === selectedBoothId) || BOOTH_TIERS[0];
-  const isFoodCategory = selectedTier.id === 'food-truck' || formData.category.toLowerCase().includes('food') || formData.isFoodVendor;
+  const isFoodCategory =
+    selectedTier.id === 'food-truck' ||
+    formData.category.toLowerCase().includes('food') ||
+    formData.vendorKind === 'Prepared Food' ||
+    formData.vendorKind === 'Prepackaged Food' ||
+    formData.isFoodVendor;
 
   // Toggle Day Selection (Any combination allowed)
   const toggleDay = (dayId: 'fri' | 'sat' | 'sun') => {
@@ -141,6 +147,16 @@ export const VendorApplicationModal: React.FC<VendorApplicationModalProps> = ({
     }));
   };
 
+  const handleVendorKindSelect = (kind: string) => {
+    const isFood = kind === 'Prepared Food' || kind === 'Prepackaged Food';
+    setFormData((prev) => ({
+      ...prev,
+      vendorKind: kind,
+      isFoodVendor: isFood ? true : prev.isFoodVendor,
+    }));
+    setErrorMsg(null);
+  };
+
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
@@ -166,6 +182,10 @@ export const VendorApplicationModal: React.FC<VendorApplicationModalProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (!formData.vendorKind || !formData.vendorKind.trim()) {
+      setErrorMsg('Please select "What Kind Of Vendor Are You? *"');
+      return;
+    }
     if (!formData.businessName.trim()) {
       setErrorMsg('Please enter your Business / Shop Name.');
       return;
@@ -206,7 +226,7 @@ export const VendorApplicationModal: React.FC<VendorApplicationModalProps> = ({
       year: 'numeric',
     });
 
-    const emailSubject = `Vendor Application [${appId}]: ${formData.businessName} - ${selectedTier.name}`;
+    const emailSubject = `Vendor Application [${appId}]: ${formData.businessName} (${formData.vendorKind}) - ${selectedTier.name}`;
     const emailBody = `${EVENT_CONFIG.name.toUpperCase()}
 OFFICIAL VENDOR APPLICATION
 
@@ -222,6 +242,7 @@ Contact Person: ${formData.contactName}
 Email: ${formData.email}
 Phone: ${formData.phone}
 Website / Social: ${formData.website || 'N/A'}
+What Kind Of Vendor Are You?: ${formData.vendorKind}
 Vendor Category: ${formData.category}
 
 ===========================================
@@ -277,6 +298,7 @@ Please review my registration and send confirmation and payment instructions to 
       email: formData.email,
       phone: formData.phone,
       website: formData.website || '',
+      vendorKind: formData.vendorKind || 'Certified Farmer',
       category: formData.category,
       selectedBoothId,
       selectedDays,
@@ -396,9 +418,37 @@ Please review my registration and send confirmation and payment instructions to 
 
             <form onSubmit={handleSubmit} className="space-y-6">
               
-              {/* Accepted Vendor Types Badge with Green Checkboxes */}
-              <div className="p-3.5 rounded-2xl bg-[#FAF8F5] border border-[#E8E2D6]">
-                <TypesOfVendorBadge label="Types of Vendor Accepted:" size="md" />
+              {/* What Kind Of Vendor Are You? * Interactive Selector */}
+              <div className="p-4 rounded-2xl bg-[#FAF8F5] border border-[#E8E2D6] space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs sm:text-sm font-bold text-[#3D3A30] block">
+                    What Kind Of Vendor Are You? <span className="text-rose-600">*</span>
+                  </label>
+                  <span className="text-[11px] font-semibold text-[#5A5A40]">
+                    Select Your Vendor Type
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {VENDOR_KIND_OPTIONS.map((kind) => {
+                    const isSelected = formData.vendorKind === kind;
+                    return (
+                      <button
+                        type="button"
+                        key={kind}
+                        onClick={() => handleVendorKindSelect(kind)}
+                        className={`p-2.5 rounded-xl border text-left transition-all flex items-center gap-2.5 text-xs font-semibold ${
+                          isSelected
+                            ? 'bg-[#5A5A40] text-white border-[#5A5A40] shadow-sm'
+                            : 'bg-white text-[#3D3A30] border-[#E8E2D6] hover:bg-[#F0EBE0]/60'
+                        }`}
+                      >
+                        <GreenCheckboxIcon checked={isSelected} className="w-4 h-4" />
+                        <span className="leading-snug">{kind}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
               {/* SECTION 1: Booth Tier Selection */}
@@ -850,6 +900,10 @@ Please review my registration and send confirmation and payment instructions to 
                 <div>
                   <span className="text-[10px] text-white/70 uppercase block">Business Name</span>
                   <span className="font-bold text-white text-sm">{submittedApplication.data.businessName}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-white/70 uppercase block">What Kind Of Vendor Are You?</span>
+                  <span className="font-bold text-[#F0EBE0] text-sm">{submittedApplication.data.vendorKind || 'Certified Farmer'}</span>
                 </div>
                 <div>
                   <span className="text-[10px] text-white/70 uppercase block">Selected Space</span>

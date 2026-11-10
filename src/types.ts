@@ -31,12 +31,28 @@ export interface FestivalDay {
   breakdownNotice: string;
 }
 
+export const VENDOR_KIND_OPTIONS = [
+  'Certified Farmer',
+  'Prepared Food',
+  'Prepackaged Food',
+  'Retail & Crafts (You Make it)',
+  'Retail & Crafts (Someone Else Makes it)',
+  'Bath & Body (You Make It)',
+  'Bath & Body (Retail)',
+  'Non-Profit',
+  'Entertainment',
+  'Info Booth',
+] as const;
+
+export type VendorKind = (typeof VENDOR_KIND_OPTIONS)[number];
+
 export interface VendorFormData {
   businessName: string;
   contactName: string;
   email: string;
   phone: string;
   website: string;
+  vendorKind?: string;
   category: string;
   selectedBoothId: BoothId;
   selectedDays: Array<'fri' | 'sat' | 'sun'>;
@@ -104,6 +120,10 @@ export interface ScheduleEvent {
   description: string;
   type?: 'entertainment' | 'food' | 'market' | 'workshop' | 'kids';
   category?: string;
+  imageUrl?: string;
+  images?: string[];
+  sourceUrl?: string;
+  importedFrom?: string;
 }
 
 export interface MarketCategory {
@@ -150,6 +170,7 @@ export interface FestivalConfigData {
   freeAdmission: boolean;
   active: boolean;
   siteDomain?: string;
+  websiteUrl?: string;
   seoTitle?: string;
   seoDescription?: string;
   seoKeywords?: string;
@@ -161,7 +182,7 @@ export interface EmailTemplateData {
   id: string;
   key: string;
   title: string;
-  category: 'vendor' | 'attendee' | 'broadcast' | 'billing';
+  category: 'vendor' | 'attendee' | 'broadcast' | 'billing' | 'custom';
   subject: string;
   previewText: string;
   htmlBody: string;
@@ -204,6 +225,11 @@ export interface AntiSpamAudit {
   hasPhysicalAddress: boolean;
   hasDkimHeaders: boolean;
   hasSpfAligned: boolean;
+  hasWebsiteButton?: boolean;
+  hasUnsubscribeButton?: boolean;
+  hasSafeSenderNotice?: boolean;
+  hasPreheaderSnippet?: boolean;
+  isRfc8058Compliant?: boolean;
 }
 
 export interface OutboundEmailLog {
@@ -401,10 +427,14 @@ export interface EventLocationMarket {
   isNonStop?: boolean; // True if event runs non-stop continuously
   days: Array<'fri' | 'sat' | 'sun'>; // Days of event
   hours?: string;
-  vendorTypesAccepted: string[]; // Music, Art, Craft, Food, Commercial
+  vendorTypesAccepted: string[]; // Music, Art, Craft, Food, Commercial, etc.
   boothPricePerDay?: number;
   totalBoothsCount?: number;
   active: boolean;
+  imageUrl?: string;
+  images?: string[];
+  sourceUrl?: string;
+  importedFrom?: string;
   createdAt: string;
   updatedAt?: string;
 }

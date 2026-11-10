@@ -90,13 +90,10 @@ export default function App() {
       if (festivalConfig?.seoKeywords) {
         extraKeywords.push(...festivalConfig.seoKeywords.split(',').map(s => s.trim()).filter(Boolean));
       }
-      if (festivalConfig?.datingKeywords) {
-        extraKeywords.push(...festivalConfig.datingKeywords.split(',').map(s => s.trim()).filter(Boolean));
-      }
 
       updateDocumentHead({
-        title: festivalConfig?.seoTitle || 'Community Vendor Marketplace, Artisan Expo & Dating Singles Festival',
-        description: festivalConfig?.seoDescription || 'Join us for a 3-day premier community marketplace bringing together artisan makers, farmers, food trucks, and evening singles mixers & date night strolls. Free passes available.',
+        title: festivalConfig?.seoTitle || 'Community Vendor Marketplace & Festival Expo',
+        description: festivalConfig?.seoDescription || 'Join us for a 3-day premier community marketplace bringing together artisan makers, farmers, food trucks, and live music concerts. Free passes available.',
         canonicalPath: '/',
         noIndex: false,
         customOrigin,
@@ -108,11 +105,9 @@ export default function App() {
           'food truck rally',
           'columbia festival expo',
           'outdoor farmers market',
-          'dating events',
-          'singles mixer festival',
-          'speed dating pop-up',
-          'date night festival',
-          'singles meetups'
+          'live music festival',
+          '50 states directory',
+          'artisan marketplace'
         ]
       });
     }
@@ -213,6 +208,12 @@ export default function App() {
           onOpenVendorModal={() => handleOpenVendorModal('tent-10x10')}
         />
 
+        {/* Official Events & Nationwide Directory (Responsive with Sidebar Filters on Big Screens) */}
+        <NationwideVendorDirectory
+          onOpenVendorModal={handleOpenVendorModal}
+          onOpenAttendeeModal={handleOpenAttendeeModal}
+        />
+
         {/* Outdoor Attendee Experience & Waterfront Discovery */}
         <AttendeeExperience
           onOpenAttendeeModal={handleOpenAttendeeModal}
@@ -244,11 +245,6 @@ export default function App() {
 
         {/* Dedicated Vendor Booking Portal & Space Rates */}
         <VendorBookingPortal 
-          onOpenVendorModal={handleOpenVendorModal}
-        />
-
-        {/* 50 States & Metropolitan Markets Directory */}
-        <NationwideVendorDirectory
           onOpenVendorModal={handleOpenVendorModal}
         />
 

@@ -1,4 +1,5 @@
 import React from 'react';
+import { VENDOR_KIND_OPTIONS } from '../types';
 
 export interface TypesOfVendorProps {
   className?: string;
@@ -7,9 +8,20 @@ export interface TypesOfVendorProps {
   onToggleType?: (type: string) => void;
   interactive?: boolean;
   size?: 'sm' | 'md' | 'lg';
+  useVendorKinds?: boolean;
 }
 
 export const VENDOR_TYPES = [
+  'Certified Farmer',
+  'Prepared Food',
+  'Prepackaged Food',
+  'Retail & Crafts (You Make it)',
+  'Retail & Crafts (Someone Else Makes it)',
+  'Bath & Body (You Make It)',
+  'Bath & Body (Retail)',
+  'Non-Profit',
+  'Entertainment',
+  'Info Booth',
   'Music',
   'Art',
   'Craft',
@@ -58,12 +70,15 @@ export const GreenCheckboxIcon: React.FC<{ checked?: boolean; className?: string
 
 export const TypesOfVendorBadge: React.FC<TypesOfVendorProps> = ({
   className = '',
-  label = 'Types of Vendor:',
+  label = 'What Kind Of Vendor Are You? *',
   selectedTypes,
   onToggleType,
   interactive = false,
-  size = 'md'
+  size = 'md',
+  useVendorKinds = true,
 }) => {
+  const displayList = useVendorKinds ? VENDOR_KIND_OPTIONS : VENDOR_TYPES;
+
   const isChecked = (type: string) => {
     if (!selectedTypes) return true; // Default all checked like in screenshot
     return selectedTypes.includes(type);
@@ -73,15 +88,15 @@ export const TypesOfVendorBadge: React.FC<TypesOfVendorProps> = ({
   const iconSize = size === 'sm' ? 'w-3.5 h-3.5' : size === 'lg' ? 'w-4.5 h-4.5' : 'w-4 h-4';
 
   return (
-    <div className={`inline-flex flex-wrap items-center gap-x-2.5 gap-y-1 ${textSize} ${className}`}>
+    <div className={`inline-flex flex-wrap items-center gap-x-2.5 gap-y-1.5 ${textSize} ${className}`}>
       {label && (
         <span className="font-bold text-[#1f2937] dark:text-[#2d2926] shrink-0 tracking-tight">
           {label}
         </span>
       )}
       
-      <div className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
-        {VENDOR_TYPES.map((type) => {
+      <div className="inline-flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
+        {displayList.map((type) => {
           const checked = isChecked(type);
           
           if (interactive && onToggleType) {
@@ -93,7 +108,7 @@ export const TypesOfVendorBadge: React.FC<TypesOfVendorProps> = ({
                   e.stopPropagation();
                   onToggleType(type);
                 }}
-                className={`inline-flex items-center gap-1 font-semibold transition-all px-1 py-0.5 rounded cursor-pointer ${
+                className={`inline-flex items-center gap-1 font-semibold transition-all px-1.5 py-0.5 rounded cursor-pointer ${
                   checked 
                     ? 'text-[#111827] hover:text-emerald-700' 
                     : 'text-gray-400 opacity-60 hover:opacity-100 line-through'

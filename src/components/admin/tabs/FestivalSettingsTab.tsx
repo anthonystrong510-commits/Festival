@@ -16,7 +16,11 @@ import {
   ExternalLink,
   Clock,
   Zap,
-  ArrowRight
+  ArrowRight,
+  Globe,
+  Search,
+  FileCode,
+  Copy
 } from 'lucide-react';
 import { FestivalConfigData, SmtpConfigData } from '../../../types';
 import { safeFetchJson } from '../../../lib/apiUtils';
@@ -51,6 +55,25 @@ export function FestivalSettingsTab({
     latencyMs?: number;
     error?: string;
   } | null>(null);
+
+  const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
+
+  const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://www.skysevents.online';
+
+  const handleAutoDetectDomain = () => {
+    setForm(prev => ({
+      ...prev,
+      siteDomain: currentOrigin
+    }));
+  };
+
+  const handleCopy = (text: string) => {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text);
+      setCopiedUrl(text);
+      setTimeout(() => setCopiedUrl(null), 2500);
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -361,6 +384,182 @@ export function FestivalSettingsTab({
               <RefreshCw className={`w-3.5 h-3.5 ${isTestingSmtp ? 'animate-spin' : ''}`} />
               <span>{isTestingSmtp ? 'Testing Socket...' : 'Test SMTP Connection'}</span>
             </button>
+          </div>
+        </div>
+
+        {/* Advanced SEO, Domain & Sitemap Management */}
+        <div className="bg-white p-5 sm:p-6 rounded-2xl border border-[#E8E2D6] shadow-xs space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#E8E2D6]">
+            <div className="flex items-center gap-2">
+              <div className="p-2 rounded-xl bg-amber-50 text-amber-800 border border-amber-200">
+                <Globe className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="font-bold text-sm text-[#3D3A30]">SEO, Canonical Domain & Sitemap Routing</h3>
+                <p className="text-xs text-[#7A7566]">
+                  Configure production domain for Google Search Console, OpenGraph cards, and XML sitemaps.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleAutoDetectDomain}
+                className="px-3 py-1.5 rounded-lg bg-[#F0EBE0] hover:bg-[#EAE4D6] text-[#5A5A40] text-xs font-bold flex items-center gap-1.5 transition-colors border border-[#E8E2D6]"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Auto-Detect Current URL</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Canonical Site Domain */}
+            <div className="md:col-span-2">
+              <label className="block text-xs font-bold text-[#3D3A30] mb-1">
+                Canonical Site Domain (for Google Search Console & Sitemaps)
+              </label>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#7A7566]">
+                    <Globe className="w-4 h-4" />
+                  </div>
+                  <input
+                    type="url"
+                    value={form.siteDomain || ''}
+                    onChange={(e) => setForm({ ...form, siteDomain: e.target.value })}
+                    placeholder="https://www.skysevents.online"
+                    className="w-full pl-9 pr-3 py-2 rounded-xl border border-[#E8E2D6] bg-[#FDFBF7] text-xs font-mono text-[#3D3A30] focus:border-[#5A5A40] outline-none"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleCopy(form.siteDomain || currentOrigin)}
+                  className="px-3 py-2 rounded-xl border border-[#E8E2D6] bg-white hover:bg-[#FDFBF7] text-xs text-[#5A5A40] font-medium flex items-center gap-1.5 transition-colors"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                  <span>{copiedUrl === (form.siteDomain || currentOrigin) ? 'Copied!' : 'Copy'}</span>
+                </button>
+              </div>
+              <p className="text-[11px] text-[#7A7566] mt-1">
+                Enter your live domain (e.g. <code className="bg-stone-100 px-1 py-0.5 rounded text-[#5A5A40]">https://www.skysevents.online</code>). All sitemaps, canonical tags, and JSON-LD schemas automatically reflect this origin.
+              </p>
+            </div>
+
+            {/* SEO Page Title */}
+            <div>
+              <label className="block text-xs font-bold text-[#3D3A30] mb-1">
+                Public SEO Title (&lt;title&gt; & og:title)
+              </label>
+              <input
+                type="text"
+                value={form.seoTitle || ''}
+                onChange={(e) => setForm({ ...form, seoTitle: e.target.value })}
+                placeholder="Community Vendor Marketplace & Festival Expo"
+                className="w-full px-3 py-2 rounded-xl border border-[#E8E2D6] bg-[#FDFBF7] text-xs text-[#3D3A30] focus:border-[#5A5A40] outline-none"
+              />
+              <p className="text-[10px] text-[#7A7566] mt-1">Ideal length: 40–60 characters.</p>
+            </div>
+
+            {/* SEO Description */}
+            <div>
+              <label className="block text-xs font-bold text-[#3D3A30] mb-1">
+                Meta Description (Search Engine Snippet)
+              </label>
+              <input
+                type="text"
+                value={form.seoDescription || ''}
+                onChange={(e) => setForm({ ...form, seoDescription: e.target.value })}
+                placeholder="Premier 3-day community vendor marketplace, artisan fair, live music concerts, and nationwide 50 states directory."
+                className="w-full px-3 py-2 rounded-xl border border-[#E8E2D6] bg-[#FDFBF7] text-xs text-[#3D3A30] focus:border-[#5A5A40] outline-none"
+              />
+              <p className="text-[10px] text-[#7A7566] mt-1">Ideal length: 120–160 characters.</p>
+            </div>
+
+            {/* General SEO Keywords */}
+            <div>
+              <label className="block text-xs font-bold text-[#3D3A30] mb-1">
+                General Marketplace Keywords (comma separated)
+              </label>
+              <textarea
+                rows={2}
+                value={form.seoKeywords || ''}
+                onChange={(e) => setForm({ ...form, seoKeywords: e.target.value })}
+                placeholder="community marketplace, artisan craft festival, food truck rally, farmers market, vendor application, live concert festival, 50 states directory"
+                className="w-full px-3 py-2 rounded-xl border border-[#E8E2D6] bg-[#FDFBF7] text-xs text-[#3D3A30] focus:border-[#5A5A40] outline-none font-mono"
+              />
+            </div>
+          </div>
+
+          {/* Quick Sitemap Links & Live Verification */}
+          <div className="pt-2 border-t border-[#E8E2D6]">
+            <h4 className="text-xs font-bold text-[#3D3A30] mb-2 flex items-center gap-1.5">
+              <FileCode className="w-4 h-4 text-[#5A5A40]" />
+              <span>Sitemap Files (Guaranteed application/xml Headers & No HTML Rewriting):</span>
+            </h4>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+              {[
+                { name: 'Sitemap Index', path: '/sitemap_index.xml', desc: 'Combined index of all sub-sitemaps' },
+                { name: 'Main Sitemap', path: '/sitemap.xml', desc: '50 States & Directory URLs' },
+                { name: 'Robots.txt', path: '/robots.txt', desc: 'Search engine crawler rules' }
+              ].map((sm) => {
+                const targetUrl = `${form.siteDomain || currentOrigin}${sm.path}`;
+                return (
+                  <div key={sm.path} className="p-3 rounded-xl border border-[#E8E2D6] bg-[#FDFBF7] flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between gap-1 mb-1">
+                        <span className="font-bold text-xs text-[#3D3A30]">{sm.name}</span>
+                        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold">
+                          XML
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-[#7A7566] mb-2">{sm.desc}</p>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 pt-1">
+                      <a
+                        href={sm.path}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex-1 px-2.5 py-1.5 rounded-lg bg-white border border-[#E8E2D6] hover:bg-[#F0EBE0] text-[#5A5A40] text-[11px] font-medium flex items-center justify-center gap-1 transition-colors"
+                      >
+                        <span>Open {sm.path}</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => handleCopy(targetUrl)}
+                        title="Copy full URL for Search Console"
+                        className="p-1.5 rounded-lg bg-white border border-[#E8E2D6] hover:bg-[#F0EBE0] text-[#7A7566] transition-colors"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Search Console Instructions Card */}
+          <div className="p-4 rounded-xl bg-amber-50/60 border border-amber-200 text-xs text-amber-950 space-y-2">
+            <div className="font-bold flex items-center gap-1.5 text-amber-900">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>How Google Search Console "Sitemap is HTML" Was Solved:</span>
+            </div>
+            <ol className="list-decimal pl-5 space-y-1 text-amber-900/90 text-[11px] leading-relaxed">
+              <li>
+                <strong>Vercel Routing Bypass</strong>: Configured <code className="bg-amber-100 px-1 py-0.5 rounded">vercel.json</code> to route all sitemaps directly with <code className="bg-amber-100 px-1 py-0.5 rounded">application/xml; charset=utf-8</code> headers and excluded them from the SPA <code className="bg-amber-100 px-1 py-0.5 rounded">index.html</code> rewrite.
+              </li>
+              <li>
+                <strong>Dynamic Host Resolution</strong>: Added server-side endpoints in <code className="bg-amber-100 px-1 py-0.5 rounded">/api/sitemap</code> and <code className="bg-amber-100 px-1 py-0.5 rounded">server.ts</code> so requests to <code className="bg-amber-100 px-1 py-0.5 rounded">https://www.skysevents.online/sitemap.xml</code> output matching XML tags.
+              </li>
+              <li>
+                <strong>Search Console Action</strong>: In Google Search Console, under <em>Sitemaps</em>, enter <code className="bg-white font-mono px-1.5 py-0.5 rounded border border-amber-300 font-bold">sitemap_index.xml</code> or <code className="bg-white font-mono px-1.5 py-0.5 rounded border border-amber-300 font-bold">sitemap.xml</code> and click <strong>Submit</strong>.
+              </li>
+            </ol>
           </div>
         </div>
 

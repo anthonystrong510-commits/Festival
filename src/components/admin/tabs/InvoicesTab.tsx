@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { Invoice, PaymentConfig, SmtpConfigData, FestivalConfigData, InvoiceStatus } from '../../../types';
 import { updateInvoiceStatus, deleteInvoice } from '../../../lib/firebase';
+import { sendAutomatedEmail } from '../../../lib/emailService';
 import { InvoicePreviewModal } from '../modals/InvoicePreviewModal';
 import { InvoiceCheckoutModal } from '../../checkout/InvoiceCheckoutModal';
 
@@ -75,6 +76,30 @@ export function InvoicesTab({
   const handleApprovePayment = async (inv: Invoice) => {
     try {
       await updateInvoiceStatus(inv.id, 'paid', inv.totalAmount);
+      try {
+        await sendAutomatedEmail({
+          recipientEmail: inv.recipientEmail,
+          recipientName: inv.recipientContactName || inv.recipientBusinessName,
+          templateKey: 'vendor_payment_confirmed',
+          variables: {
+            contact_name: inv.recipientContactName || 'Vendor',
+            business_name: inv.recipientBusinessName,
+            application_id: inv.vendorApplicationId || inv.id,
+            invoice_number: inv.invoiceNumber,
+            paid_amount: `$${Number(inv.totalAmount).toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+            booth_zone: 'Main Artisan Row',
+            booth_type: 'Confirmed Space',
+            current_year: new Date().getFullYear(),
+            festival_name: festivalConfig?.name || 'Festival Market',
+            location: festivalConfig?.address || 'Festival Grounds',
+            contact_email: smtpConfig?.fromEmail || 'events@columbiamarket.org'
+          },
+          festivalConfig,
+          smtpConfig
+        });
+      } catch (mailErr) {
+        console.warn('Payment receipt mailer warning:', mailErr);
+      }
       setReviewingInvoice(null);
       if (onRefresh) onRefresh();
     } catch (e) {

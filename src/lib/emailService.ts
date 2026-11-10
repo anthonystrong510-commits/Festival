@@ -5,7 +5,8 @@ import {
   SmtpConfigData, 
   FestivalConfigData, 
   OutboundEmailLog,
-  SendEmailResult
+  SendEmailResult,
+  Invoice
 } from '../types';
 import { interpolateTemplate, calculateAntiSpamScore } from './antiSpamUtils';
 import { DEFAULT_EMAIL_TEMPLATES } from '../data/defaultEmailTemplates';
@@ -62,17 +63,31 @@ export async function sendAutomatedEmail(options: SendEmailOptions): Promise<Sen
   let template = customTemplate;
   if (!template) {
     const fetched = await getEmailTemplateByKey(templateKey);
-    template = fetched || DEFAULT_EMAIL_TEMPLATES.find(t => t.key === templateKey) || DEFAULT_EMAIL_TEMPLATES[0];
+    template = fetched || DEFAULT_EMAIL_TEMPLATES.find(t => t.key === templateKey || t.id === templateKey) || DEFAULT_EMAIL_TEMPLATES[0];
   }
+
+  // Resolve active base and website URLs
+  const baseUrl = typeof window !== 'undefined' ? window.location.origin : (festivalConfig?.siteDomain || 'https://columbiamarket.org');
+  const websiteUrl = festivalConfig?.websiteUrl || festivalConfig?.siteDomain || baseUrl;
+  const unsubUrl = `${baseUrl}/?unsubscribe=${encodeURIComponent(recipientEmail)}&scope=all`;
+  const prefUrl = `${baseUrl}/?unsubscribe=${encodeURIComponent(recipientEmail)}&tab=preferences`;
+  const physicalAddr = festivalConfig?.address || 'Columbia Festival & Market Grounds, 1100 Lincoln St, Columbia, SC 29201, USA';
+  const contactEmail = smtpConfig?.fromEmail || festivalConfig?.contactEmail || 'events@companydesk.online';
 
   // Merge default global variables with passed variables
   const mergedVariables: Record<string, string | number> = {
     festival_name: festivalConfig?.name || 'Columbia Festival Market',
-    location: festivalConfig?.address || 'Columbia Event Grounds, Columbia, SC',
+    location: physicalAddr,
     venue_name: festivalConfig?.venueName || 'Columbia Event Grounds',
-    contact_email: smtpConfig?.fromEmail || 'organizer@columbiamarket.org',
+    contact_email: contactEmail,
     current_year: new Date().getFullYear(),
     recipient_name: recipientName,
+    recipient_email: recipientEmail,
+    website_url: websiteUrl,
+    unsubscribe_url: unsubUrl,
+    preferences_url: prefUrl,
+    physical_address: physicalAddr,
+    safe_sender_email: contactEmail,
     ...variables
   };
 
@@ -284,6 +299,142 @@ export async function sendVendorApprovalEmail(
     smtpConfig,
     meta: {
       type: 'vendor_approval',
+      applicationId: app.id
+    }
+  });
+}
+
+/**
+ * Trigger official Payment Request & Invoice email to vendor applicant
+ */
+export async function sendPaymentRequestEmail(
+  app: VendorApplicationRecord,
+  invoice: Invoice,
+  festivalConfig?: FestivalConfigData,
+  smtpConfig?: SmtpConfigData
+): Promise<SendEmailResult> {
+  const checkoutUrl = invoice.checkoutUrl || `${window.location.origin}/?invoice=${invoice.id}`;
+  const festAddress = festivalConfig?.address || 'Columbia Event Grounds, Columbia, SC';
+
+  return sendAutomatedEmail({
+    recipientEmail: app.email,
+    recipientName: app.contactName,
+    templateKey: 'vendor_invoice_official',
+    variables: {
+      contact_name: app.contactName,
+      business_name: app.businessName,
+      invoice_number: invoice.invoiceNumber,
+      total_amount: `$${Number(invoice.totalAmount).toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+      due_date: invoice.dueDate,
+      checkout_url: checkoutUrl,
+      physical_address: festAddress,
+      unsubscribe_url: `${window.location.origin}/?unsubscribe=${encodeURIComponent(app.email)}&scope=invoice`,
+      application_id: app.id
+    },
+    festivalConfig,
+    smtpConfig,
+    meta: {
+      type: 'vendor_payment_request',
+      applicationId: app.id,
+      invoiceId: invoice.id,
+      invoiceNumber: invoice.invoiceNumber
+    }
+  });
+}
+
+/**
+ * Trigger Payment Confirmation & Official Booth Pass to vendor applicant
+ */
+export async function sendPaymentConfirmedEmail(
+  app: VendorApplicationRecord,
+  invoice: Invoice,
+  festivalConfig?: FestivalConfigData,
+  smtpConfig?: SmtpConfigData
+): Promise<SendEmailResult> {
+  const boothLabels: Record<string, string> = {
+    'tent-10x10': '10x10 Standard Canopy Space',
+    'tent-10x20': '10x20 Double Showcase Space',
+    'table-artisan': '6ft Covered Artisan Table',
+    'food-truck': 'Food Truck & Mobile Kitchen Bay',
+    'farmers-stall': 'Fresh Produce & Floral Stall'
+  };
+
+  return sendAutomatedEmail({
+    recipientEmail: app.email,
+    recipientName: app.contactName,
+    templateKey: 'vendor_payment_confirmed',
+    variables: {
+      contact_name: app.contactName,
+      business_name: app.businessName,
+      application_id: app.id,
+      invoice_number: invoice.invoiceNumber,
+      paid_amount: `$${Number(invoice.paidAmount || invoice.totalAmount).toLocaleString('en-US', { minimumFractionDigits: 2 })}`,
+      booth_zone: app.boothZoneAssignment || 'Main Artisan Row',
+      booth_type: boothLabels[app.selectedBoothId] || app.selectedBoothId,
+      current_year: new Date().getFullYear()
+    },
+    festivalConfig,
+    smtpConfig,
+    meta: {
+      type: 'vendor_payment_confirmed',
+      applicationId: app.id,
+      invoiceId: invoice.id
+    }
+  });
+}
+
+/**
+ * Trigger Waitlist notification to applicant
+ */
+export async function sendVendorWaitlistEmail(
+  app: VendorApplicationRecord,
+  festivalConfig?: FestivalConfigData,
+  smtpConfig?: SmtpConfigData
+): Promise<SendEmailResult> {
+  return sendAutomatedEmail({
+    recipientEmail: app.email,
+    recipientName: app.contactName,
+    templateKey: 'vendor_waitlist',
+    variables: {
+      contact_name: app.contactName,
+      business_name: app.businessName,
+      category: app.category,
+      application_id: app.id
+    },
+    festivalConfig,
+    smtpConfig,
+    meta: {
+      type: 'vendor_waitlist',
+      applicationId: app.id
+    }
+  });
+}
+
+/**
+ * Trigger custom message from organizer to applicant
+ */
+export async function sendCustomApplicantEmail(
+  app: VendorApplicationRecord,
+  customSubject: string,
+  customMessageBody: string,
+  festivalConfig?: FestivalConfigData,
+  smtpConfig?: SmtpConfigData
+): Promise<SendEmailResult> {
+  return sendAutomatedEmail({
+    recipientEmail: app.email,
+    recipientName: app.contactName,
+    templateKey: 'applicant_custom_message',
+    variables: {
+      contact_name: app.contactName,
+      business_name: app.businessName,
+      custom_subject: customSubject,
+      custom_message_body: customMessageBody,
+      application_id: app.id
+    },
+    festivalConfig,
+    smtpConfig,
+    meta: {
+      type: 'custom_applicant_message',
       applicationId: app.id
     }
   });

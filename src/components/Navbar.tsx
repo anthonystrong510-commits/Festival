@@ -27,13 +27,11 @@ export const Navbar: React.FC<NavbarProps> = ({
   }, []);
 
   const navLinks = [
-    { label: 'About', href: '#about' },
+    { label: 'Events', href: '#events' },
     { label: 'Experience', href: '#experience' },
     { label: 'Categories', href: '#categories' },
     { label: 'Schedule', href: '#schedule' },
     { label: 'Grounds Map', href: '#map' },
-    { label: 'Spotlights', href: '#spotlights' },
-    { label: '50 States Guide', href: '#states-directory' },
     { label: 'FAQ', href: '#faq' },
   ];
 

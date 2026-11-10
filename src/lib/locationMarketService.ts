@@ -10,10 +10,12 @@ import {
   orderBy 
 } from 'firebase/firestore';
 import { db, cleanFirestoreData } from './firebase';
-import { EventLocationMarket, CustomCityEntry } from '../types';
+import { EventLocationMarket, CustomCityEntry, VENDOR_KIND_OPTIONS } from '../types';
 import { USA_STATES_CITIES_DATA } from '../data/usaStatesCitiesData';
+import { MIAMI_FARMERS_MARKET_LOCATIONS } from '../data/miamiFarmersMarketEvents';
 
 export const DEFAULT_EVENT_LOCATIONS: EventLocationMarket[] = [
+  ...MIAMI_FARMERS_MARKET_LOCATIONS,
   {
     id: 'loc-columbia-sc',
     title: '2026 Columbia Fall First Fridays',
@@ -26,10 +28,12 @@ export const DEFAULT_EVENT_LOCATIONS: EventLocationMarket[] = [
     dates: ['2026-10-02', '2026-10-03', '2026-10-04'],
     days: ['fri', 'sat', 'sun'],
     hours: '10:00 AM - 7:00 PM',
-    vendorTypesAccepted: ['Music', 'Art', 'Craft', 'Food', 'Commercial'],
+    vendorTypesAccepted: [...VENDOR_KIND_OPTIONS, 'Music', 'Art', 'Craft', 'Food', 'Commercial'],
     boothPricePerDay: 75,
     totalBoothsCount: 180,
     active: true,
+    imageUrl: 'https://images.unsplash.com/photo-1533900298318-6b8da08a523e?auto=format&fit=crop&w=900&q=80',
+    images: ['https://images.unsplash.com/photo-1533900298318-6b8da08a523e?auto=format&fit=crop&w=900&q=80'],
     createdAt: '2026-09-10T12:00:00Z',
     updatedAt: '2026-09-19T08:00:00Z'
   },
@@ -45,10 +49,12 @@ export const DEFAULT_EVENT_LOCATIONS: EventLocationMarket[] = [
     dates: ['2026-10-02', '2026-10-03'],
     days: ['fri', 'sat'],
     hours: '11:00 AM - 8:00 PM',
-    vendorTypesAccepted: ['Music', 'Art', 'Craft', 'Food', 'Commercial'],
+    vendorTypesAccepted: [...VENDOR_KIND_OPTIONS, 'Music', 'Art', 'Craft', 'Food', 'Commercial'],
     boothPricePerDay: 65,
     totalBoothsCount: 95,
     active: true,
+    imageUrl: 'https://images.unsplash.com/photo-1488459716781-31db52582fe9?auto=format&fit=crop&w=900&q=80',
+    images: ['https://images.unsplash.com/photo-1488459716781-31db52582fe9?auto=format&fit=crop&w=900&q=80'],
     createdAt: '2026-09-12T10:00:00Z',
     updatedAt: '2026-09-19T08:00:00Z'
   },
@@ -64,10 +70,12 @@ export const DEFAULT_EVENT_LOCATIONS: EventLocationMarket[] = [
     dates: ['2026-10-09', '2026-10-10', '2026-10-11'],
     days: ['fri', 'sat', 'sun'],
     hours: '10:00 AM - 6:00 PM',
-    vendorTypesAccepted: ['Music', 'Art', 'Craft', 'Food', 'Commercial'],
+    vendorTypesAccepted: [...VENDOR_KIND_OPTIONS, 'Music', 'Art', 'Craft', 'Food', 'Commercial'],
     boothPricePerDay: 110,
     totalBoothsCount: 260,
     active: true,
+    imageUrl: 'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&w=900&q=80',
+    images: ['https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&w=900&q=80'],
     createdAt: '2026-09-12T11:00:00Z',
     updatedAt: '2026-09-19T08:00:00Z'
   },
@@ -83,10 +91,12 @@ export const DEFAULT_EVENT_LOCATIONS: EventLocationMarket[] = [
     dates: ['2026-09-25', '2026-09-26', '2026-09-27'],
     days: ['fri', 'sat', 'sun'],
     hours: '10:00 AM - 7:00 PM',
-    vendorTypesAccepted: ['Music', 'Art', 'Craft', 'Food', 'Commercial'],
+    vendorTypesAccepted: [...VENDOR_KIND_OPTIONS, 'Music', 'Art', 'Craft', 'Food', 'Commercial'],
     boothPricePerDay: 125,
     totalBoothsCount: 160,
     active: true,
+    imageUrl: 'https://images.unsplash.com/photo-1565123409695-7b5ef63a2efb?auto=format&fit=crop&w=900&q=80',
+    images: ['https://images.unsplash.com/photo-1565123409695-7b5ef63a2efb?auto=format&fit=crop&w=900&q=80'],
     createdAt: '2026-09-14T09:00:00Z',
     updatedAt: '2026-09-19T08:00:00Z'
   },
@@ -102,10 +112,12 @@ export const DEFAULT_EVENT_LOCATIONS: EventLocationMarket[] = [
     dates: ['2026-10-16', '2026-10-17', '2026-10-18'],
     days: ['fri', 'sat', 'sun'],
     hours: '10:00 AM - 6:00 PM',
-    vendorTypesAccepted: ['Music', 'Art', 'Craft', 'Food', 'Commercial'],
+    vendorTypesAccepted: [...VENDOR_KIND_OPTIONS, 'Music', 'Art', 'Craft', 'Food', 'Commercial'],
     boothPricePerDay: 95,
     totalBoothsCount: 175,
     active: true,
+    imageUrl: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=900&q=80',
+    images: ['https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=900&q=80'],
     createdAt: '2026-09-14T10:00:00Z',
     updatedAt: '2026-09-19T08:00:00Z'
   },
@@ -121,10 +133,12 @@ export const DEFAULT_EVENT_LOCATIONS: EventLocationMarket[] = [
     dates: ['2026-10-23', '2026-10-24', '2026-10-25'],
     days: ['fri', 'sat', 'sun'],
     hours: '11:00 AM - 9:00 PM',
-    vendorTypesAccepted: ['Music', 'Art', 'Craft', 'Food', 'Commercial'],
+    vendorTypesAccepted: [...VENDOR_KIND_OPTIONS, 'Music', 'Art', 'Craft', 'Food', 'Commercial'],
     boothPricePerDay: 105,
     totalBoothsCount: 210,
     active: true,
+    imageUrl: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=900&q=80',
+    images: ['https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=900&q=80'],
     createdAt: '2026-09-14T12:00:00Z',
     updatedAt: '2026-09-19T08:00:00Z'
   },
@@ -140,17 +154,35 @@ export const DEFAULT_EVENT_LOCATIONS: EventLocationMarket[] = [
     dates: ['2026-10-02', '2026-10-03', '2026-10-04'],
     days: ['fri', 'sat', 'sun'],
     hours: '10:00 AM - 6:30 PM',
-    vendorTypesAccepted: ['Music', 'Art', 'Craft', 'Food', 'Commercial'],
+    vendorTypesAccepted: [...VENDOR_KIND_OPTIONS, 'Music', 'Art', 'Craft', 'Food', 'Commercial'],
     boothPricePerDay: 120,
     totalBoothsCount: 220,
     active: true,
+    imageUrl: 'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?auto=format&fit=crop&w=900&q=80',
+    images: ['https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?auto=format&fit=crop&w=900&q=80'],
     createdAt: '2026-09-15T08:00:00Z',
     updatedAt: '2026-09-19T08:00:00Z'
   }
 ];
 
-const LOCATIONS_CACHE_KEY = 'columbia_event_locations_cache_v1';
+const LOCATIONS_CACHE_KEY = 'columbia_event_locations_cache_v3';
 const CITIES_CACHE_KEY = 'columbia_custom_cities_cache_v1';
+
+const DEFAULT_LOCATIONS_BY_ID = new Map<string, EventLocationMarket>(
+  DEFAULT_EVENT_LOCATIONS.map((loc) => [loc.id, loc])
+);
+
+function enrichWithDefaultImages(loc: EventLocationMarket): EventLocationMarket {
+  const def = DEFAULT_LOCATIONS_BY_ID.get(loc.id);
+  if (!def) return loc;
+  return {
+    ...loc,
+    imageUrl: loc.imageUrl || def.imageUrl,
+    images: loc.images && loc.images.length > 0 ? loc.images : def.images,
+    sourceUrl: loc.sourceUrl || def.sourceUrl,
+    importedFrom: loc.importedFrom || def.importedFrom,
+  };
+}
 
 // Format date nicely e.g. "2026-10-02" -> "Oct 02, 2026"
 export function formatEventDate(dateStr: string): string {
@@ -257,13 +289,20 @@ export function getCitiesForState(stateCode: string, customCities: CustomCityEnt
 export function subscribeEventLocations(
   callback: (locations: EventLocationMarket[]) => void
 ): () => void {
-  // 1. Initial cached fallback
+  // 1. Initial cached fallback merged with DEFAULT_EVENT_LOCATIONS
   try {
     const cachedStr = localStorage.getItem(LOCATIONS_CACHE_KEY);
     if (cachedStr) {
       const parsed = JSON.parse(cachedStr);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        callback(parsed);
+        const existingIds = new Set(parsed.map((l: EventLocationMarket) => l.id));
+        const merged = parsed.map(enrichWithDefaultImages);
+        for (const def of DEFAULT_EVENT_LOCATIONS) {
+          if (!existingIds.has(def.id)) {
+            merged.push(def);
+          }
+        }
+        callback(merged);
       } else {
         callback(DEFAULT_EVENT_LOCATIONS);
       }
@@ -286,10 +325,10 @@ export function subscribeEventLocations(
       }
       const list: EventLocationMarket[] = [];
       snapshot.forEach((docSnap) => {
-        list.push({ id: docSnap.id, ...(docSnap.data() as Omit<EventLocationMarket, 'id'>) });
+        list.push(enrichWithDefaultImages({ id: docSnap.id, ...(docSnap.data() as Omit<EventLocationMarket, 'id'>) }));
       });
 
-      // Merge defaults if specific states not present
+      // Merge defaults if specific locations not present
       const existingIds = new Set(list.map(l => l.id));
       const combined = [...list];
       for (const def of DEFAULT_EVENT_LOCATIONS) {
@@ -309,6 +348,81 @@ export function subscribeEventLocations(
   );
 }
 
+/**
+ * Imports live and curated events from https://miamifarmersmarket.org/
+ * Syncs with both Firestore and local cache.
+ */
+export async function importEventsFromMiamiFarmersMarket(): Promise<{
+  importedCount: number;
+  source: string;
+  locations: EventLocationMarket[];
+}> {
+  let eventsToImport: EventLocationMarket[] = [...MIAMI_FARMERS_MARKET_LOCATIONS];
+
+  try {
+    const res = await fetch('/api/import-miami-events');
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data.events) && data.events.length > 0) {
+        // Merge live API events with curated Miami Farmers Market dataset
+        const byId = new Map<string, EventLocationMarket>();
+        for (const item of MIAMI_FARMERS_MARKET_LOCATIONS) {
+          byId.set(item.id, item);
+        }
+        for (const liveItem of data.events) {
+          if (liveItem && liveItem.id) {
+            const existing = byId.get(liveItem.id);
+            if (!existing) {
+              byId.set(liveItem.id, liveItem);
+            } else {
+              byId.set(liveItem.id, {
+                ...existing,
+                imageUrl: existing.imageUrl || liveItem.imageUrl,
+                images: existing.images && existing.images.length > 0 ? existing.images : liveItem.images,
+              });
+            }
+          }
+        }
+        eventsToImport = Array.from(byId.values());
+      }
+    }
+  } catch (err) {
+    console.warn('Live fetch fallback to curated miamifarmersmarket.org dataset:', err);
+  }
+
+  // Persist to Firestore & LocalStorage
+  await Promise.all(
+    eventsToImport.map(async (loc) => {
+      try {
+        const cleaned = cleanFirestoreData(loc);
+        await setDoc(doc(db, 'event_locations', loc.id), cleaned, { merge: true });
+      } catch {}
+    })
+  );
+
+  try {
+    const cachedStr = localStorage.getItem(LOCATIONS_CACHE_KEY);
+    const current: EventLocationMarket[] = cachedStr ? JSON.parse(cachedStr) : [...DEFAULT_EVENT_LOCATIONS];
+    const map = new Map<string, EventLocationMarket>();
+    for (const item of eventsToImport) {
+      map.set(item.id, item);
+    }
+    for (const existing of current) {
+      if (!map.has(existing.id)) {
+        map.set(existing.id, enrichWithDefaultImages(existing));
+      }
+    }
+    const updatedList = Array.from(map.values());
+    localStorage.setItem(LOCATIONS_CACHE_KEY, JSON.stringify(updatedList));
+  } catch {}
+
+  return {
+    importedCount: eventsToImport.length,
+    source: 'https://miamifarmersmarket.org/',
+    locations: eventsToImport,
+  };
+}
+
 export async function saveEventLocation(
   location: Partial<EventLocationMarket> & { cityName: string; stateCode: string }
 ): Promise<EventLocationMarket> {
@@ -322,16 +436,25 @@ export async function saveEventLocation(
     cityName: location.cityName,
     venueName: location.venueName || 'Downtown Arts District',
     address: location.address || '',
+    zipCode: location.zipCode || '',
+    mapUrl: location.mapUrl || '',
     description: location.description || `${location.cityName} Artisan and Community Marketplace featuring maker vendors, fine art exhibitors, food trucks, and live entertainment.`,
     dates: location.dates && location.dates.length > 0 ? location.dates : ['2026-10-02'],
+    startDate: location.startDate,
+    endDate: location.endDate,
+    isNonStop: location.isNonStop,
     days: location.days && location.days.length > 0 ? location.days : ['fri', 'sat'],
     hours: location.hours || '10:00 AM - 6:00 PM',
     vendorTypesAccepted: location.vendorTypesAccepted && location.vendorTypesAccepted.length > 0 
       ? location.vendorTypesAccepted 
-      : ['Music', 'Art', 'Craft', 'Food', 'Commercial'],
+      : [...VENDOR_KIND_OPTIONS, 'Music', 'Art', 'Craft', 'Food', 'Commercial'],
     boothPricePerDay: location.boothPricePerDay || 75,
     totalBoothsCount: location.totalBoothsCount || 100,
     active: location.active !== undefined ? location.active : true,
+    imageUrl: location.imageUrl || '',
+    images: location.images || (location.imageUrl ? [location.imageUrl] : []),
+    sourceUrl: location.sourceUrl,
+    importedFrom: location.importedFrom,
     createdAt: location.createdAt || new Date().toISOString(),
     updatedAt: new Date().toISOString()
   };

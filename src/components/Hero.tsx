@@ -15,7 +15,9 @@ import {
   Music,
   Users,
   Compass,
-  ShoppingBag
+  ShoppingBag,
+  Search,
+  Sparkles
 } from 'lucide-react';
 import { EVENT_CONFIG, FESTIVAL_CONTACT_EMAIL, FESTIVAL_LOCATION } from '../data/festivalData';
 import { TypesOfVendorBadge } from './TypesOfVendorBadge';
@@ -121,6 +123,40 @@ export const Hero: React.FC<HeroProps> = ({ onOpenAttendeeModal, onScrollToVendo
                 <Music className="w-4 h-4 text-[#5A5A40] shrink-0" />
                 Live Music Stage
               </span>
+              <a
+                href="#events"
+                className="flex items-center gap-1.5 bg-[#FAF8F5] hover:bg-[#F0EBE0] text-[#5A5A40] px-3.5 py-1.5 rounded-full border border-[#E8E2D6] transition-colors"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-[#5A5A40] shrink-0" />
+                50 States Tour & Markets
+              </a>
+            </div>
+
+            {/* Quick Event & Market Search Floating Strip */}
+            <div className="bg-white/90 backdrop-blur-xs border border-[#E8E2D6] rounded-2xl p-2.5 sm:p-3 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+              <a
+                href="#events"
+                className="flex-1 flex items-center gap-2.5 px-3 py-2 rounded-xl bg-[#FDFBF7] hover:bg-[#F0EBE0] text-[#7A7566] text-xs transition-colors border border-[#E8E2D6]"
+              >
+                <Search className="w-4 h-4 text-[#5A5A40] shrink-0" />
+                <span className="truncate">Search scheduled events, concerts, food truck rallies, or 50 states...</span>
+              </a>
+              <div className="flex items-center gap-1.5 shrink-0 overflow-x-auto">
+                <a
+                  href="#events"
+                  className="px-3 py-1.5 rounded-xl bg-[#FAF8F5] hover:bg-[#F0EBE0] text-[#5A5A40] border border-[#E8E2D6] text-xs font-bold flex items-center gap-1 whitespace-nowrap transition-colors"
+                >
+                  <Calendar className="w-3.5 h-3.5 text-[#5A5A40]" />
+                  <span>Scheduled Events</span>
+                </a>
+                <a
+                  href="#events"
+                  className="px-3 py-1.5 rounded-xl bg-[#5A5A40] hover:bg-[#464632] text-white text-xs font-bold flex items-center gap-1 whitespace-nowrap transition-colors shadow-xs"
+                >
+                  <Search className="w-3.5 h-3.5" />
+                  <span>Explore Events</span>
+                </a>
+              </div>
             </div>
 
             {/* Attendee First CTAs */}

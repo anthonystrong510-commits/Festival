@@ -727,5 +727,262 @@ Thank you for your community participation!
   </table>
 </body>
 </html>`
+  },
+  {
+    id: 'tmpl-payment-confirmed',
+    key: 'vendor_payment_confirmed',
+    title: 'Payment Received & Official Booth Pass',
+    category: 'vendor',
+    subject: '✓ Payment Confirmed: Booth Reservation Locked for {{business_name}} - {{festival_name}}',
+    previewText: 'Your booth payment has been received and verified. Access your official exhibitor badge & load-in schedule.',
+    dynamicVariables: [
+      '{{contact_name}}',
+      '{{business_name}}',
+      '{{application_id}}',
+      '{{invoice_number}}',
+      '{{paid_amount}}',
+      '{{booth_zone}}',
+      '{{booth_type}}',
+      '{{festival_name}}',
+      '{{location}}',
+      '{{contact_email}}',
+      '{{current_year}}'
+    ],
+    antiSpamScore: 99,
+    spamAdvice: [
+      'Transactional receipt for verified payment',
+      'Includes security pass instructions and venue coordinates',
+      'Clear CAN-SPAM compliant footer with organizer physical address'
+    ],
+    isCustom: false,
+    plainTextBody: `PAYMENT CONFIRMATION & OFFICIAL BOOTH PASS - {{festival_name}}
+==================================================
+Dear {{contact_name}},
+
+We have successfully processed your payment of {{paid_amount}} for {{business_name}}!
+Your vendor booth reservation is 100% locked and verified.
+
+RESERVATION SUMMARY:
+- Application Ref: #{{application_id}}
+- Invoice Ref: {{invoice_number}}
+- Space Tier: {{booth_type}}
+- Assigned Zone: {{booth_zone}}
+- Total Paid: {{paid_amount}} USD
+- Grounds: {{location}}
+
+LOAD-IN & GATE CHECK-IN:
+1. Vendor Load-In Gate opens at 8:00 AM daily.
+2. Present this confirmation or mention Application #{{application_id}} at check-in.
+3. Canopy weights (20-30 lbs per tent leg) are strictly required upon setup.
+
+Thank you for being part of {{festival_name}}!
+
+Questions? Contact: {{contact_email}}
+{{festival_name}} Operations Committee`,
+    htmlBody: `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Payment Confirmed</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #FAF8F5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #3D3A30;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #FAF8F5; padding: 32px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" style="max-width: 600px; background-color: #FFFFFF; border: 1px solid #E8E2D6; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 14px rgba(0,0,0,0.05);" cellspacing="0" cellpadding="0" border="0">
+          
+          <!-- Green Header Banner -->
+          <tr>
+            <td style="background-color: #2D5A27; padding: 32px 28px; text-align: center; color: #FFFFFF;">
+              <span style="display: inline-block; background-color: rgba(255,255,255,0.2); color: #FFFFFF; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; padding: 4px 14px; border-radius: 20px; margin-bottom: 8px;">
+                ✓ Payment Received & Verified
+              </span>
+              <h1 style="margin: 6px 0 0 0; font-size: 24px; font-weight: 800; color: #FFFFFF; line-height: 1.2;">
+                Booth Reservation Confirmed!
+              </h1>
+              <p style="margin: 4px 0 0 0; font-size: 13px; color: #E0F2E9;">
+                {{festival_name}} &bull; {{location}}
+              </p>
+            </td>
+          </tr>
+
+          <!-- Content -->
+          <tr>
+            <td style="padding: 28px;">
+              <p style="margin: 0 0 16px 0; font-size: 15px; color: #3D3A30;">
+                Dear <strong>{{contact_name}}</strong>,
+              </p>
+              <p style="margin: 0 0 22px 0; font-size: 14px; color: #6B6658; line-height: 1.6;">
+                Great news! We have confirmed receipt of your payment in full. <strong>{{business_name}}</strong> is officially locked in for <strong>{{festival_name}}</strong>.
+              </p>
+
+              <!-- Payment Receipt Card -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #F7F5EE; border: 1px solid #E8E2D6; border-radius: 12px; padding: 18px 20px; margin-bottom: 24px;">
+                <tr>
+                  <td style="padding-bottom: 8px; font-size: 11px; color: #7A7566; text-transform: uppercase; font-weight: 800; letter-spacing: 0.5px;">
+                    Receipt Summary
+                  </td>
+                  <td align="right" style="padding-bottom: 8px; font-size: 11px; color: #2D5A27; font-weight: 800; text-transform: uppercase;">
+                    Paid in Full
+                  </td>
+                </tr>
+                <tr>
+                  <td colspan="2" style="border-top: 1px solid #E8E2D6; padding-top: 12px;">
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="4" border="0" style="font-size: 13.5px; color: #3D3A30;">
+                      <tr>
+                        <td width="42%" style="color: #6B6658;">Vendor / Business:</td>
+                        <td style="font-weight: 700;">{{business_name}}</td>
+                      </tr>
+                      <tr>
+                        <td style="color: #6B6658;">Assigned Zone:</td>
+                        <td style="font-weight: 700; color: #2D5A27;">{{booth_zone}}</td>
+                      </tr>
+                      <tr>
+                        <td style="color: #6B6658;">Booth Space:</td>
+                        <td style="font-weight: 600;">{{booth_type}}</td>
+                      </tr>
+                      <tr>
+                        <td style="color: #6B6658;">Application ID:</td>
+                        <td style="font-family: monospace; font-weight: 600;">#{{application_id}}</td>
+                      </tr>
+                      <tr>
+                        <td style="color: #6B6658; font-weight: 700;">Total Amount Paid:</td>
+                        <td style="font-weight: 800; font-size: 16px; color: #2D5A27;">{{paid_amount}} USD</td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Exhibitor Pass Box -->
+              <div style="background-color: #FAF8F5; border: 2px dashed #5A5A40; border-radius: 12px; padding: 20px; text-align: center; margin-bottom: 24px;">
+                <span style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; color: #5A5A40;">
+                  Official Vendor Pass Code
+                </span>
+                <div style="font-family: monospace; font-size: 26px; font-weight: 800; color: #3D3A30; letter-spacing: 3px; margin: 8px 0;">
+                  VPASS-{{application_id}}
+                </div>
+                <p style="margin: 0; font-size: 12px; color: #7A7566;">
+                  Show this email or pass code at Gate 3 (Vendor Load-In) upon morning arrival.
+                </p>
+              </div>
+
+              <!-- Setup Guidelines -->
+              <h3 style="font-size: 14px; font-weight: 700; color: #3D3A30; margin: 0 0 10px 0;">
+                Setup & Load-In Checklist:
+              </h3>
+              <ul style="font-size: 13px; line-height: 1.6; color: #6B6658; margin: 0 0 20px 0; padding-left: 18px;">
+                <li><strong>Arrival:</strong> Gates open at 8:00 AM. Setup must be complete 30 mins before gates open to attendees.</li>
+                <li><strong>Canopy Weights:</strong> 20-30 lbs per tent leg is mandatory for wind resistance.</li>
+                <li><strong>Parking:</strong> Move vehicle to designated Vendor Lot B immediately after unloading.</li>
+              </ul>
+
+              <p style="margin: 0; font-size: 13px; color: #6B6658;">
+                Need help or have questions? Email our support desk anytime at <a href="mailto:{{contact_email}}" style="color: #5A5A40; font-weight: 700;">{{contact_email}}</a>.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #F7F5EE; padding: 20px 28px; border-top: 1px solid #E8E2D6; text-align: center; font-size: 11px; color: #7A7566; line-height: 1.6;">
+              <p style="margin: 0 0 4px 0; font-weight: 700; color: #5A5A40;">{{festival_name}}</p>
+              <p style="margin: 0;">{{location}} &bull; Official Support: {{contact_email}}</p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`
+  },
+  {
+    id: 'tmpl-custom-message',
+    key: 'applicant_custom_message',
+    title: 'Custom Organizer Message to Applicant',
+    category: 'custom',
+    subject: 'Update from {{festival_name}} regarding {{business_name}}: {{custom_subject}}',
+    previewText: 'Message from {{festival_name}} organizers regarding your vendor registration.',
+    dynamicVariables: [
+      '{{contact_name}}',
+      '{{business_name}}',
+      '{{custom_subject}}',
+      '{{custom_message_body}}',
+      '{{festival_name}}',
+      '{{location}}',
+      '{{contact_email}}'
+    ],
+    antiSpamScore: 98,
+    spamAdvice: [
+      'Personalized message with direct organizer contact address',
+      'Standard anti-spam footer with clear organization identity'
+    ],
+    isCustom: true,
+    plainTextBody: `Hello {{contact_name}},
+
+Message regarding {{business_name}} at {{festival_name}}:
+
+{{custom_message_body}}
+
+---
+Warm regards,
+{{festival_name}} Organizing Team
+Grounds: {{location}}
+Support Email: {{contact_email}}`,
+    htmlBody: `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{{custom_subject}}</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #FAF8F5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #3D3A30;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #FAF8F5; padding: 32px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" style="max-width: 600px; background-color: #FFFFFF; border: 1px solid #E8E2D6; border-radius: 16px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.04);" cellspacing="0" cellpadding="0" border="0">
+          
+          <!-- Header Banner -->
+          <tr>
+            <td style="background-color: #5A5A40; padding: 28px 24px; text-align: left; color: #FFFFFF;">
+              <span style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #EAE4D6;">Official Organizer Communication</span>
+              <h1 style="margin: 6px 0 0 0; font-size: 22px; font-weight: 800; color: #FFFFFF;">{{custom_subject}}</h1>
+              <p style="margin: 4px 0 0 0; font-size: 13px; color: #EAE4D6;">{{festival_name}} &bull; {{business_name}}</p>
+            </td>
+          </tr>
+
+          <!-- Message Body -->
+          <tr>
+            <td style="padding: 28px;">
+              <p style="font-size: 15px; color: #3D3A30; margin: 0 0 16px 0;">
+                Dear <strong>{{contact_name}}</strong>,
+              </p>
+              
+              <div style="font-size: 14.5px; line-height: 1.7; color: #4B4639; white-space: pre-line; background-color: #FDFBF7; padding: 20px; border-radius: 12px; border: 1px solid #E8E2D6; margin-bottom: 24px;">
+                {{custom_message_body}}
+              </div>
+
+              <p style="font-size: 13px; color: #7A7566; margin: 0; line-height: 1.5;">
+                If you have questions or need to follow up, you can reply directly to this email or reach us at <a href="mailto:{{contact_email}}" style="color: #5A5A40; font-weight: 700;">{{contact_email}}</a>.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #F7F5EE; padding: 20px 24px; border-top: 1px solid #E8E2D6; text-align: center; font-size: 11px; color: #7A7566; line-height: 1.6;">
+              <p style="margin: 0 0 4px 0; font-weight: 700; color: #5A5A40;">{{festival_name}}</p>
+              <p style="margin: 0;">{{location}} &bull; Support: {{contact_email}}</p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`
   }
 ];

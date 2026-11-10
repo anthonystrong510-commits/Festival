@@ -8,11 +8,10 @@ import {
   ArrowRight, 
   ShieldAlert,
   Wind,
-  Heart,
   ChevronDown,
   Users,
   Search,
-  MessageCircleHeart
+  HelpCircle
 } from 'lucide-react';
 import { BOOTH_TIERS, EVENT_CONFIG } from '../data/festivalData';
 import { BoothId } from '../types';
@@ -22,31 +21,31 @@ interface VendorBookingPortalProps {
   onOpenVendorModal: (boothId?: BoothId, days?: Array<'fri' | 'sat' | 'sun'>) => void;
 }
 
-const DATING_APPLY_FAQS = [
+const VENDOR_RESERVATION_FAQS = [
   {
-    q: 'Can dating services, matchmaking businesses, and singles event organizers apply for a booth space?',
-    a: 'Yes, absolutely! We welcome professional matchmakers, certified dating coaches, singles social clubs, relationship authors, and dating mobile apps. Dating vendors frequently host profile glow-up consultations, icebreaker speed-dating micro rounds, and singles mixer registration lounges directly from their 10×10 Canopy or 10×20 Pavilion spaces.',
-    keywords: ['dating services vendor', 'matchmaking booth', 'singles events organizers', 'dating coach expo space']
+    q: 'What types of artisans, makers, food trucks, and commercial brands can apply?',
+    a: 'We welcome juried handmade makers, ceramicists, fine artists, metalsmith jewelers, gourmet food trucks, specialty beverage carts, regional farm produce, and approved corporate sponsors. Every application is reviewed to preserve category diversity and high standards.',
+    keywords: ['artisan vendor application', 'food truck booking', 'handmade makers festival', 'craft fair booth']
   },
   {
-    q: 'What kind of singles mixer events, icebreakers, and speed dating activities take place at the festival?',
-    a: 'Every evening from 5:30 PM to 8:30 PM, the festival hosts our official Sunset Singles Social Hour at the Riverfront Pavilion. We provide color-coded icebreaker wristbands (Green: Single & Ready to Mingle; Yellow: It’s Complicated; Red: Taken/Coupled), scheduled 5-minute speed-dating rounds, and cooperative lawn games that bring hundreds of singles directly past vendor promenades.',
-    keywords: ['singles mixer festival', 'speed dating meetup', 'singles icebreaker wristbands', 'outdoor singles event']
+    q: 'What equipment and support are included with each vendor footprint?',
+    a: 'All canopy spaces include marked footprint boundaries, 1 complimentary festival vehicle staging pass, access to clean trash and recycling facilities, and 24-hour overnight park security. 10x10 and 10x20 spaces also include 1 table and 2 chairs with early load-in support.',
+    keywords: ['booth amenities', 'canopy space inclusions', 'overnight park security', 'vendor table chairs']
   },
   {
-    q: 'Why is the festival considered a top outdoor date night destination for couples and first dates?',
-    a: 'With scenic waterfront walking paths, candlelit food truck dining tables, artisanal dessert pop-ups, craft beverage tastings, and live acoustic music, thousands of couples and first dates attend each year. Vendors offering romantic handmade gifts, custom jewelry, couple portraits, and artisan treats see high conversion during evening hours.',
-    keywords: ['date night festival', 'romantic date ideas', 'first date spot', 'couples artisan market', 'date night food trucks']
+    q: 'Can traveling and out-of-state vendors apply for multiple tour cities?',
+    a: 'Yes! Traveling artisans and mobile culinary trucks frequently tour with our festival across multiple state stops. You can indicate multiple preferred dates or locations in your application, and our coordinator will bundle your permits and space holds.',
+    keywords: ['nationwide tour vendors', 'traveling craft fair', '50 states artisan tour', 'multi-city vendor booking']
   },
   {
-    q: 'Can dating vendors sponsor the Singles Lounge or host collaborative date night workshops?',
-    a: 'Yes. Qualifying dating vendors can co-brand our Evening Singles Lounge, distribute branded icebreaker cards, or facilitate interactive 20-minute couple/singles workshops (e.g., "Charcuterie Date Night Styling", "Craft Cocktail Pairing for Two", or "Modern Dating Advice Q&A"). Mention your workshop concept in your application.',
-    keywords: ['dating brand sponsorship', 'singles lounge host', 'couple workshops', 'relationship seminar']
+    q: 'When is vendor load-in and what are the breakdown procedures?',
+    a: 'Standard Friday load-in begins at 8:00 AM through 12:30 PM with drive-up unloading. Saturday and Sunday restock windows open from 8:00 AM to 9:45 AM before public gates open. Booth breakdown begins only after public egress on Sunday at 6:00 PM for attendee safety.',
+    keywords: ['load-in schedule', 'drive up unloading', 'booth setup hours', 'restock window', 'breakdown logistics']
   },
   {
-    q: 'What are the rules for selling romantic couples gifts, anniversary jewelry, and dating merchandise?',
-    a: 'Handmade, artisan, and boutique goods celebrating love, anniversaries, and romance are encouraged. All merchandise must be presented professionally, with clear pricing and high-quality booth displays. Electrical drops are available for illuminated jewelry showcases and photo stations.',
-    keywords: ['couples gifts handmade', 'anniversary jewelry booth', 'romantic crafts', 'date night gifts']
+    q: 'Are electrical power drops, generator permits, and Wi-Fi available?',
+    a: 'Yes. Standard 110V/20A power drops can be requested for payment POS processing and subtle LED lighting. Food trucks requiring dedicated 30A/50A hookups or approved whisper-quiet inverter generators should specify their wattage requirements in their application.',
+    keywords: ['electrical hookup', 'generator permit', 'pos wifi internet', 'vendor power drops']
   }
 ];
 
@@ -144,9 +143,14 @@ export const VendorBookingPortal: React.FC<VendorBookingPortalProps> = ({ onOpen
                   </div>
                 </div>
 
-                {/* Types of Vendor */}
+                {/* What Kind Of Vendor Are You? * */}
                 <div className="pt-2">
-                  <TypesOfVendorBadge label="Types of Vendor:" className="p-2.5 rounded-2xl bg-[#FDFBF7] border border-[#E8E2D6]" />
+                  <div className="p-3.5 rounded-2xl bg-[#FDFBF7] border border-[#E8E2D6] space-y-2">
+                    <TypesOfVendorBadge
+                      label="What Kind Of Vendor Are You? *"
+                      useVendorKinds={true}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -210,29 +214,29 @@ export const VendorBookingPortal: React.FC<VendorBookingPortalProps> = ({ onOpen
           </div>
         </div>
 
-        {/* Dating & Singles Events Apply FAQ Section */}
-        <div id="dating-faq" className="mt-12 bg-white rounded-[32px] border border-[#E8E2D6] p-6 sm:p-8 lg:p-10 shadow-sm space-y-6">
+        {/* Exhibitor Guidelines & FAQ Section */}
+        <div id="booking-faq" className="mt-12 bg-white rounded-[32px] border border-[#E8E2D6] p-6 sm:p-8 lg:p-10 shadow-sm space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E8E2D6] pb-6">
             <div className="space-y-1">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider text-rose-700 bg-rose-50 border border-rose-200">
-                <Heart className="w-3.5 h-3.5 fill-rose-500 text-rose-500" />
-                Dating & Singles Opportunities
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider text-[#5A5A40] bg-[#F0EBE0] border border-[#E8E2D6]">
+                <HelpCircle className="w-3.5 h-3.5 text-[#5A5A40]" />
+                Exhibitor & Booth FAQ
               </div>
               <h3 className="text-2xl sm:text-3xl font-serif italic font-bold text-[#3D3A30]">
-                Singles Mixers, Speed Dating & Date Night FAQs
+                Space Reservations & Logistics Guidelines
               </h3>
               <p className="text-[#6B6658] text-xs sm:text-sm">
-                Targeting search queries for matchmaking services, singles meetups, romantic date ideas, and couple workshops.
+                Essential details regarding booth permits, multi-city touring, electrical utility connections, and load-in schedules.
               </p>
             </div>
 
             <button
               type="button"
               onClick={() => onOpenVendorModal('tent-10x10')}
-              className="self-start sm:self-center px-5 py-2.5 rounded-full bg-rose-700 hover:bg-rose-800 text-white font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-sm hover:shadow transition-all"
+              className="self-start sm:self-center px-5 py-2.5 rounded-full bg-[#5A5A40] hover:bg-[#464632] text-white font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-sm hover:shadow transition-all"
             >
-              <MessageCircleHeart className="w-4 h-4" />
-              <span>Apply as Dating Vendor</span>
+              <Store className="w-4 h-4" />
+              <span>Apply for Space</span>
             </button>
           </div>
 
@@ -240,15 +244,15 @@ export const VendorBookingPortal: React.FC<VendorBookingPortalProps> = ({ onOpen
           <div className="flex flex-wrap items-center gap-2 pt-1 pb-2">
             <span className="text-[11px] font-bold text-[#7A7566] uppercase tracking-wider flex items-center gap-1 mr-1">
               <Search className="w-3.5 h-3.5" />
-              Trending Queries:
+              Popular Topics:
             </span>
             {[
-              'singles mixer festival',
-              'speed dating pop-up booth',
-              'outdoor date night festival',
-              'matchmaking vendor application',
-              'romantic couples gifts',
-              'dating coach workshop'
+              'artisan booth guidelines',
+              'food truck power hookup',
+              '50 states tour dates',
+              'early load-in logistics',
+              'overnight park security',
+              'juried acceptance'
             ].map((tag) => (
               <span 
                 key={tag} 
@@ -261,7 +265,7 @@ export const VendorBookingPortal: React.FC<VendorBookingPortalProps> = ({ onOpen
 
           {/* Accordion List */}
           <div className="space-y-3">
-            {DATING_APPLY_FAQS.map((faq, idx) => {
+            {VENDOR_RESERVATION_FAQS.map((faq, idx) => {
               const isOpen = openFaqIndex === idx;
               return (
                 <div
@@ -274,7 +278,7 @@ export const VendorBookingPortal: React.FC<VendorBookingPortalProps> = ({ onOpen
                     className="w-full text-left p-4 sm:p-5 flex items-center justify-between gap-4 font-bold text-[#3D3A30] hover:text-[#5A5A40] transition-colors"
                   >
                     <div className="flex items-center gap-2.5">
-                      <div className="w-2 h-2 rounded-full bg-rose-500 shrink-0" />
+                      <div className="w-2 h-2 rounded-full bg-[#5A5A40] shrink-0" />
                       <span className="text-sm sm:text-base font-serif italic">{faq.q}</span>
                     </div>
                     <ChevronDown
@@ -302,12 +306,12 @@ export const VendorBookingPortal: React.FC<VendorBookingPortalProps> = ({ onOpen
             })}
           </div>
 
-          {/* Footnote on Dating Booth Jury */}
+          {/* Footnote */}
           <div className="p-4 rounded-2xl bg-[#F0EBE0]/60 border border-[#E8E2D6] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-[#6B6658]">
             <div className="flex items-center gap-2">
               <Users className="w-4 h-4 text-[#5A5A40] shrink-0" />
               <span>
-                Want to curate a special <strong>Speed Dating</strong> or <strong>Singles Mixer</strong> segment? Select "Handmade Crafts" or "Community Service" and note "Singles / Dating Focus" in your description.
+                Need customized footprint sizing or pavilion corner placement? Select your preferred space above and note your requirements in your application.
               </span>
             </div>
             <button
@@ -319,7 +323,6 @@ export const VendorBookingPortal: React.FC<VendorBookingPortalProps> = ({ onOpen
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
-
         </div>
 
       </div>

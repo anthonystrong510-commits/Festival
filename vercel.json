@@ -7,32 +7,44 @@
     },
     {
       "source": "/sitemap.xml",
-      "destination": "/sitemap.xml"
+      "destination": "/api/sitemap?type=main"
+    },
+    {
+      "source": "/sitemap-dating.xml",
+      "destination": "/api/sitemap?type=dating"
+    },
+    {
+      "source": "/sitemap_index.xml",
+      "destination": "/api/sitemap?type=index"
     },
     {
       "source": "/robots.txt",
-      "destination": "/robots.txt"
+      "destination": "/api/robots"
     },
     {
       "source": "/google:filename*.html",
       "destination": "/google:filename*.html"
     },
     {
-      "source": "/((?!api/|sitemap\\.xml|robots\\.txt|google.*\\.html|.*\\.[\\w]+$).*)",
+      "source": "/((?!api/|sitemap.*\\.xml|robots\\.txt|google.*\\.html|.*\\.(?:css|js|json|xml|txt|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot)$).*)",
       "destination": "/index.html"
     }
   ],
   "headers": [
     {
-      "source": "/sitemap.xml",
+      "source": "/(.*)\\.xml",
       "headers": [
         {
           "key": "Content-Type",
           "value": "application/xml; charset=utf-8"
         },
         {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
           "key": "Cache-Control",
-          "value": "public, max-age=3600, s-maxage=3600"
+          "value": "public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400"
         }
       ]
     },
@@ -44,8 +56,12 @@
           "value": "text/plain; charset=utf-8"
         },
         {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
           "key": "Cache-Control",
-          "value": "public, max-age=3600, s-maxage=3600"
+          "value": "public, max-age=3600, s-maxage=86400"
         }
       ]
     },

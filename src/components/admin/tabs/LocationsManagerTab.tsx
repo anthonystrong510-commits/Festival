@@ -28,7 +28,7 @@ import {
   ArrowRight
 } from 'lucide-react';
 import { USA_STATES_CITIES_DATA, UsaStateMarket } from '../../../data/usaStatesCitiesData';
-import { EventLocationMarket, CustomCityEntry } from '../../../types';
+import { EventLocationMarket, CustomCityEntry, VENDOR_KIND_OPTIONS } from '../../../types';
 import { 
   subscribeEventLocations, 
   saveEventLocation, 
@@ -40,7 +40,8 @@ import {
   formatEventDate,
   generateDateRangeList,
   formatEventDateRange,
-  getCitiesForState
+  getCitiesForState,
+  importEventsFromMiamiFarmersMarket
 } from '../../../lib/locationMarketService';
 import { TypesOfVendorBadge } from '../../TypesOfVendorBadge';
 
@@ -60,6 +61,7 @@ export function LocationsManagerTab() {
   const [isBulkEditModalOpen, setIsBulkEditModalOpen] = useState(false);
   const [isAddCityModalOpen, setIsAddCityModalOpen] = useState(false);
   const [feedbackNotice, setFeedbackNotice] = useState<string | null>(null);
+  const [isImportingMiami, setIsImportingMiami] = useState(false);
 
   // New/Editing Location Form State
   const [formTitle, setFormTitle] = useState('');
@@ -71,6 +73,7 @@ export function LocationsManagerTab() {
   const [formAddress, setFormAddress] = useState('');
   const [formZipCode, setFormZipCode] = useState('');
   const [formMapUrl, setFormMapUrl] = useState('');
+  const [formImageUrl, setFormImageUrl] = useState('');
   const [formDescription, setFormDescription] = useState('');
 
   // Date Selection State (Date Range & Non-stop support)
@@ -82,7 +85,7 @@ export function LocationsManagerTab() {
   const [formNewDateInput, setFormNewDateInput] = useState('');
   const [formDays, setFormDays] = useState<Array<'fri' | 'sat' | 'sun'>>(['fri', 'sat', 'sun']);
   const [formHours, setFormHours] = useState('10:00 AM - 6:00 PM');
-  const [formVendorTypes, setFormVendorTypes] = useState<string[]>(['Music', 'Art', 'Craft', 'Food', 'Commercial']);
+  const [formVendorTypes, setFormVendorTypes] = useState<string[]>([...VENDOR_KIND_OPTIONS, 'Music', 'Art', 'Craft', 'Food', 'Commercial']);
   const [formBoothPrice, setFormBoothPrice] = useState(75);
   const [formTotalBooths, setFormTotalBooths] = useState(120);
   const [formActive, setFormActive] = useState(true);
@@ -207,6 +210,7 @@ export function LocationsManagerTab() {
     setFormAddress(loc.address || '');
     setFormZipCode(loc.zipCode || '');
     setFormMapUrl(loc.mapUrl || '');
+    setFormImageUrl(loc.imageUrl || loc.images?.[0] || '');
     setFormDescription(loc.description);
     
     // Date & Range setup
@@ -244,6 +248,7 @@ export function LocationsManagerTab() {
     setFormAddress('1200 Main Street');
     setFormZipCode('29201');
     setFormMapUrl('');
+    setFormImageUrl('');
     setFormDescription(`${defaultCity} Fall First Fridays & Weekend Marketplace. Featuring juried artisan maker booths, food trucks, craft creators, and regional acoustic music.`);
     
     setFormStartDate('2026-10-02');
@@ -286,6 +291,12 @@ export function LocationsManagerTab() {
       address: formAddress.trim(),
       zipCode: formZipCode.trim(),
       mapUrl: formMapUrl.trim(),
+      imageUrl: formImageUrl.trim() || editingLocation?.imageUrl,
+      images: editingLocation?.images && editingLocation.images.length > 0
+        ? (formImageUrl.trim() && !editingLocation.images.includes(formImageUrl.trim())
+            ? [formImageUrl.trim(), ...editingLocation.images]
+            : editingLocation.images)
+        : (formImageUrl.trim() ? [formImageUrl.trim()] : undefined),
       description: formDescription.trim(),
       startDate: formDateMode === 'range' ? formStartDate : computedDates[0],
       endDate: formDateMode === 'range' ? formEndDate : computedDates[computedDates.length - 1],
@@ -412,6 +423,30 @@ export function LocationsManagerTab() {
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
+          <button
+            type="button"
+            disabled={isImportingMiami}
+            onClick={async () => {
+              setIsImportingMiami(true);
+              try {
+                const res = await importEventsFromMiamiFarmersMarket();
+                setLocations((prev) => {
+                  const byId = new Map<string, EventLocationMarket>();
+                  for (const item of res.locations) byId.set(item.id, item);
+                  for (const existing of prev) if (!byId.has(existing.id)) byId.set(existing.id, existing);
+                  return Array.from(byId.values());
+                });
+                showToast(`Imported & synced ${res.importedCount} events from miamifarmersmarket.org!`);
+              } finally {
+                setIsImportingMiami(false);
+              }
+            }}
+            className="px-4 py-2.5 rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold flex items-center gap-1.5 transition-colors shadow-xs disabled:opacity-60"
+          >
+            <RefreshCw className={`w-4 h-4 ${isImportingMiami ? 'animate-spin' : ''}`} />
+            <span>{isImportingMiami ? 'Importing Events...' : 'Import miamifarmersmarket.org'}</span>
+          </button>
+
           <button
             onClick={() => setIsAddCityModalOpen(true)}
             className="px-4 py-2.5 rounded-2xl bg-[#F0EBE0] hover:bg-[#E5DFD2] text-[#5A5A40] text-xs font-bold flex items-center gap-1.5 transition-colors border border-[#E8E2D6]"
@@ -646,14 +681,46 @@ export function LocationsManagerTab() {
                   </div>
                 </div>
 
-                {/* Location Description */}
-                <div>
-                  <div className="text-[11px] font-bold uppercase tracking-wider text-[#8A8576] mb-1">
-                    Location Description:
+                {/* Location Image & Description */}
+                <div className="flex flex-col sm:flex-row gap-4">
+                  {(loc.imageUrl || (loc.images && loc.images.length > 0)) && (
+                    <div className="sm:w-48 shrink-0 space-y-1.5">
+                      <div className="relative h-32 w-full rounded-2xl overflow-hidden border border-[#E8E2D6] bg-[#F0EBE0]">
+                        <img
+                          src={loc.imageUrl || loc.images?.[0]}
+                          alt={loc.title}
+                          loading="lazy"
+                          className="w-full h-full object-cover"
+                        />
+                        {loc.images && loc.images.length > 1 && (
+                          <span className="absolute bottom-1.5 right-1.5 px-2 py-0.5 rounded-md bg-black/70 text-white text-[10px] font-bold">
+                            {loc.images.length} photos
+                          </span>
+                        )}
+                      </div>
+                      {loc.images && loc.images.length > 1 && (
+                        <div className="flex items-center gap-1 overflow-x-auto pb-0.5">
+                          {loc.images.slice(0, 4).map((img, idx) => (
+                            <img
+                              key={img + idx}
+                              src={img}
+                              alt={`${loc.title} ${idx + 1}`}
+                              loading="lazy"
+                              className="w-10 h-7 rounded-md object-cover border border-[#E8E2D6] shrink-0"
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  <div className="flex-1">
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-[#8A8576] mb-1">
+                      Location Description:
+                    </div>
+                    <p className="text-xs text-[#5D584D] leading-relaxed bg-[#FDFBF7] p-3 rounded-2xl border border-[#E8E2D6]/70">
+                      {loc.description}
+                    </p>
                   </div>
-                  <p className="text-xs text-[#5D584D] leading-relaxed bg-[#FDFBF7] p-3 rounded-2xl border border-[#E8E2D6]/70">
-                    {loc.description}
-                  </p>
                 </div>
 
                 {/* MULTIPLE DATES & DAYS BADGES */}
@@ -941,6 +1008,28 @@ export function LocationsManagerTab() {
                       onChange={(e) => setFormZipCode(e.target.value)}
                       className="w-full px-2.5 py-1.5 rounded-lg border border-[#E8E2D6] bg-white font-mono"
                     />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-[#5D584D] mb-1">
+                    Event Cover Image URL (Imported or Custom Photo)
+                  </label>
+                  <div className="flex flex-col sm:flex-row gap-2.5 items-start">
+                    <input
+                      type="url"
+                      placeholder="https://base44.app/api/apps/... or https://..."
+                      value={formImageUrl}
+                      onChange={(e) => setFormImageUrl(e.target.value)}
+                      className="flex-1 w-full px-3 py-2 rounded-xl border border-[#E8E2D6] bg-white font-mono text-[11px]"
+                    />
+                    {formImageUrl && (
+                      <img
+                        src={formImageUrl}
+                        alt="Event preview"
+                        className="w-20 h-12 rounded-xl object-cover border border-[#E8E2D6] shrink-0"
+                      />
+                    )}
                   </div>
                 </div>
 

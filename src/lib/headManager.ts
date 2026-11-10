@@ -63,22 +63,19 @@ export function updateDocumentHead(meta: PageHeadMeta) {
       : 'index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1'
   );
 
-  // High-Intent Search Keywords (including Dating, Singles & Vendor Queries)
+  // High-Intent Search Keywords (including Vendor & Market Queries)
   const defaultKeywords = [
     'community marketplace',
     'artisan craft festival',
     'vendor application',
     'food truck rally',
     '50 states vendor directory',
-    'dating events',
-    'singles mixer',
-    'festival date night',
-    'speed dating pop-up',
-    'singles meetups',
-    'romantic date night ideas',
-    'couples artisan market',
-    'local dating fair',
-    'matchmaking booths'
+    'live music festival',
+    'family event expo',
+    'makers market',
+    'local business pop-up',
+    'juried art festival',
+    'waterfront concert'
   ];
 
   const mergedKeywords = Array.from(new Set([...(meta.keywords || []), ...defaultKeywords]));
@@ -95,7 +92,7 @@ export function updateDocumentHead(meta: PageHeadMeta) {
   setMetaTag('property', 'og:description', meta.description);
   setMetaTag('property', 'og:type', meta.ogType || 'website');
   setMetaTag('property', 'og:url', canonicalUrl);
-  setMetaTag('property', 'og:site_name', 'Community Vendor Marketplace & Dating Singles Festival');
+  setMetaTag('property', 'og:site_name', 'Community Vendor Marketplace & Festival Expo');
   setLinkTag('canonical', canonicalUrl);
 
   // Link to XML Sitemaps
@@ -106,7 +103,7 @@ export function updateDocumentHead(meta: PageHeadMeta) {
   setMetaTag('name', 'twitter:title', meta.title);
   setMetaTag('name', 'twitter:description', meta.description);
 
-  // 5. Inject Structured JSON-LD (Event + FAQPage with Dating queries + WebSite)
+  // 5. Inject Structured JSON-LD (Event + FAQPage + WebSite)
   const jsonLdId = 'festival-structured-data';
   let scriptEl = document.getElementById(jsonLdId) as HTMLScriptElement | null;
 
@@ -126,7 +123,7 @@ export function updateDocumentHead(meta: PageHeadMeta) {
           '@type': 'WebSite',
           '@id': `${origin}/#website`,
           'url': origin,
-          'name': 'Community Vendor Marketplace & Dating Singles Festival Expo',
+          'name': 'Community Vendor Marketplace & Festival Expo',
           'description': meta.description,
           'potentialAction': {
             '@type': 'SearchAction',
@@ -138,7 +135,7 @@ export function updateDocumentHead(meta: PageHeadMeta) {
         {
           '@type': 'Festival',
           '@id': `${origin}/#event`,
-          'name': 'Community Vendor Marketplace, Artisan Expo & Dating Singles Mixer',
+          'name': 'Community Vendor Marketplace & Festival Expo',
           'description': meta.description,
           'url': origin,
           'startDate': '2026-10-02T10:00:00-04:00',
@@ -167,37 +164,29 @@ export function updateDocumentHead(meta: PageHeadMeta) {
           },
           'organizer': {
             '@type': 'Organization',
-            'name': 'Community Festival & Singles Event Operations',
+            'name': 'Community Festival Operations & Vendor Management',
             'url': origin
           }
         },
-        // Rich FAQPage Schema (incorporating Dating Search Queries & Vendor Policies)
+        // Rich FAQPage Schema
         {
           '@type': 'FAQPage',
           '@id': `${origin}/#faq`,
           'mainEntity': [
             {
               '@type': 'Question',
-              'name': 'Can dating services, matchmaking agencies, and singles event organizers apply for a vendor booth?',
+              'name': 'What types of vendors and makers can exhibit at the festival?',
               'acceptedAnswer': {
                 '@type': 'Answer',
-                'text': 'Yes! Matchmaking services, certified dating coaches, singles social clubs, relationship authors, and dating apps can book 10x10 or 10x20 spaces to host speed-dating micro-sessions, dating profile reviews, and matchmaking consultations.'
+                'text': 'We welcome juried handmade crafters, ceramicists, fine artists, metalsmith jewelers, gourmet food trucks, specialty beverage purveyors, and local small businesses.'
               }
             },
             {
               '@type': 'Question',
-              'name': 'What singles mixer events and speed dating activities happen at the festival?',
+              'name': 'What live entertainment and concert performances are scheduled?',
               'acceptedAnswer': {
                 '@type': 'Answer',
-                'text': 'The festival hosts daily Singles Social Mixers every evening from 5:30 PM to 8:30 PM at the Sunset Riverfront Pavilion, featuring Color-Coded Singles Icebreaker Wristbands, 5-minute mini speed-dating rounds, and social mixer games.'
-              }
-            },
-            {
-              '@type': 'Question',
-              'name': 'Is the festival a good date night destination for couples and first dates?',
-              'acceptedAnswer': {
-                '@type': 'Answer',
-                'text': 'The festival is rated as a premier outdoor date night destination, offering waterfront artisan strolls, candlelit food truck dining tables, craft beer and wine tastings, live acoustic music, and couples craft workshops.'
+                'text': 'The festival features daily live music across the Amphitheater and Main Stages, including jazz, indie folk, blues, community ensembles, and interactive craft workshops.'
               }
             },
             {
@@ -213,7 +202,7 @@ export function updateDocumentHead(meta: PageHeadMeta) {
               'name': 'Is festival admission free for attendees?',
               'acceptedAnswer': {
                 '@type': 'Answer',
-                'text': 'Yes, general admission to the festival grounds, artisan aisles, concert stages, and singles mixers is 100% free with complimentary online RSVP passes.'
+                'text': 'Yes, general admission to the festival grounds, artisan aisles, food truck row, and concert stages is 100% free with complimentary online RSVP passes.'
               }
             }
           ]

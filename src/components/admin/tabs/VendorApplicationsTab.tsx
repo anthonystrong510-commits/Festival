@@ -25,7 +25,8 @@ import {
   CheckSquare,
   Square,
   MinusSquare,
-  Receipt
+  Receipt,
+  ShieldCheck
 } from 'lucide-react';
 import { 
   VendorApplicationRecord, 
@@ -34,7 +35,8 @@ import {
   PaymentConfig,
   SmtpConfigData,
   FestivalConfigData,
-  Invoice
+  Invoice,
+  VENDOR_KIND_OPTIONS
 } from '../../../types';
 import { BOOTH_TIERS } from '../../../data/festivalData';
 import { saveInvoice } from '../../../lib/firebase';
@@ -114,6 +116,7 @@ export function VendorApplicationsTab({
     email: '',
     phone: '',
     website: '',
+    vendorKind: 'Certified Farmer',
     category: 'Artisan Crafts & Handmade Goods',
     selectedBoothId: 'tent-10x10' as BoothId,
     selectedDays: ['fri', 'sat', 'sun'] as Array<'fri' | 'sat' | 'sun'>,
@@ -141,6 +144,7 @@ export function VendorApplicationsTab({
           app.contactName.toLowerCase().includes(q) ||
           app.email.toLowerCase().includes(q) ||
           app.category.toLowerCase().includes(q) ||
+          (app.vendorKind && app.vendorKind.toLowerCase().includes(q)) ||
           app.id.toLowerCase().includes(q);
         if (!matchesSearch) return false;
       }
@@ -580,6 +584,11 @@ export function VendorApplicationsTab({
 
                           {/* Extra info tags */}
                           <div className="flex flex-wrap gap-1 mt-0.5">
+                            {app.vendorKind && (
+                              <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 font-semibold">
+                                {app.vendorKind}
+                              </span>
+                            )}
                             <span className="text-[9px] px-1.5 py-0.2 rounded bg-[#F7F5EE] text-[#7A7566] border border-[#E8E2D6]">
                               {app.category}
                             </span>
@@ -702,24 +711,26 @@ export function VendorApplicationsTab({
                       {/* Quick Actions */}
                       <td className="py-3.5 px-4 text-right">
                         <div className="inline-flex items-center gap-1.5">
-                          {/* Quick Approve / Change status */}
+                          {/* Quick Approve & Email */}
                           {app.status === 'pending' && (
                             <button
                               onClick={() => {
                                 onUpdateStatus(app.id, { status: 'approved' });
+                                onOpenEmailModal(app, 'vendor_app_approved');
                               }}
-                              className="p-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 transition-colors"
-                              title="Approve Application"
+                              className="px-2 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                              title="Approve & Send Acceptance Email"
                             >
-                              <Check className="w-3.5 h-3.5" />
+                              <Check className="w-3 h-3 text-emerald-700" />
+                              <span>Approve</span>
                             </button>
                           )}
 
                           {/* Direct Send Email Button */}
                           <button
-                            onClick={() => onOpenEmailModal(app, app.status === 'approved' ? 'vendor_app_approved' : 'vendor_app_received')}
-                            className="p-1.5 rounded-lg bg-[#F7F5EE] hover:bg-[#EAE4D6] text-[#5A5A40] border border-[#E8E2D6] transition-colors"
-                            title="Send Email to Vendor"
+                            onClick={() => onOpenEmailModal(app, app.status === 'approved' ? 'vendor_app_approved' : app.status === 'waitlist' ? 'vendor_waitlist' : 'vendor_app_received')}
+                            className="p-1.5 rounded-lg bg-[#F7F5EE] hover:bg-[#EAE4D6] text-[#5A5A40] border border-[#E8E2D6] transition-colors cursor-pointer"
+                            title="Deliver Notification Email (Internal SMTP)"
                           >
                             <Mail className="w-3.5 h-3.5" />
                           </button>
@@ -727,7 +738,7 @@ export function VendorApplicationsTab({
                           {/* Inspect Modal */}
                           <button
                             onClick={() => onSelectAppForModal(app)}
-                            className="px-2.5 py-1.5 rounded-lg bg-[#5A5A40] hover:bg-[#464632] text-white text-xs font-bold flex items-center gap-1 transition-colors"
+                            className="px-2.5 py-1.5 rounded-lg bg-[#5A5A40] hover:bg-[#464632] text-white text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
                           >
                             <Eye className="w-3 h-3" />
                             <span>Details</span>
@@ -887,16 +898,21 @@ export function VendorApplicationsTab({
             <div className="p-6 space-y-6 flex-1 text-xs sm:text-sm text-[#3D3A30]">
               
               {/* Quick Status Control Buttons */}
-              <div className="p-4 rounded-2xl bg-[#F7F5EE] border border-[#E8E2D6]">
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-[#7A7566] mb-2">
-                  Change Review Status:
-                </label>
+              <div className="p-4 rounded-2xl bg-[#F7F5EE] border border-[#E8E2D6] space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-[#7A7566]">
+                    Change Review Status:
+                  </label>
+                  <span className="text-[10px] text-[#7A7566]">
+                    Current: <strong className="uppercase text-[#3D3A30]">{selectedAppForModal.status}</strong>
+                  </span>
+                </div>
                 <div className="flex flex-wrap gap-2">
                   {(['pending', 'approved', 'waitlist', 'paid', 'rejected'] as ApplicationStatus[]).map((st) => (
                     <button
                       key={st}
                       onClick={() => onUpdateStatus(selectedAppForModal.id, { status: st })}
-                      className={`px-3 py-1.5 rounded-xl font-bold capitalize text-xs transition-colors ${
+                      className={`px-3 py-1.5 rounded-xl font-bold capitalize text-xs transition-colors cursor-pointer ${
                         selectedAppForModal.status === st
                           ? 'bg-[#5A5A40] text-white shadow-xs'
                           : 'bg-white text-[#6B6658] border border-[#E8E2D6] hover:bg-[#EAE4D6]'
@@ -913,21 +929,123 @@ export function VendorApplicationsTab({
                         onSelectAppForModal(null);
                         onOpenInvoiceModal(app);
                       }}
-                      className="px-3.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs"
+                      className="px-3.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer"
                     >
                       <Receipt className="w-3.5 h-3.5" />
-                      <span>Send Invoice (Crypto & Fiat)</span>
+                      <span>Issue Invoice (${selectedAppForModal.totalCalculatedFee || 250})</span>
                     </button>
                   )}
+                </div>
+              </div>
 
+              {/* Inbuilt Email Notification Dispatcher (Internal SMTP) */}
+              <div className="p-4 rounded-2xl bg-[#FAF8F5] border border-[#E8E2D6] space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 font-bold text-xs uppercase tracking-wider text-[#3D3A30]">
+                    <Mail className="w-4 h-4 text-[#5A5A40]" />
+                    <span>Send Email Notification to Applicant (Internal SMTP)</span>
+                  </div>
+                  <span className="text-[11px] text-[#2D5A27] font-semibold flex items-center gap-1">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Internal SMTP Operational</span>
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {/* Payment Request */}
                   <button
-                    onClick={() => {
-                      onOpenEmailModal(selectedAppForModal, selectedAppForModal.status === 'approved' ? 'vendor_app_approved' : 'vendor_app_received');
-                    }}
-                    className="ml-auto px-3.5 py-1.5 rounded-xl bg-[#2D4A3E] hover:bg-[#20362D] text-white text-xs font-bold flex items-center gap-1.5"
+                    type="button"
+                    onClick={() => onOpenEmailModal(selectedAppForModal, 'vendor_invoice_official')}
+                    className="p-2.5 rounded-xl bg-white hover:bg-[#5A5A40] text-[#5A5A40] hover:text-white border border-[#E8E2D6] text-xs font-bold flex flex-col items-start gap-1 transition-all cursor-pointer shadow-2xs group"
                   >
-                    <Send className="w-3.5 h-3.5" />
-                    <span>Send Notification Email</span>
+                    <div className="flex items-center gap-1.5">
+                      <Receipt className="w-3.5 h-3.5 text-amber-600 group-hover:text-white" />
+                      <span>Payment Request</span>
+                    </div>
+                    <span className="text-[10px] text-[#7A7566] group-hover:text-white/80 font-normal">
+                      Fee breakdown & checkout link
+                    </span>
+                  </button>
+
+                  {/* Approval Notice */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onUpdateStatus(selectedAppForModal.id, { status: 'approved' });
+                      onOpenEmailModal(selectedAppForModal, 'vendor_app_approved');
+                    }}
+                    className="p-2.5 rounded-xl bg-white hover:bg-emerald-700 text-emerald-800 hover:text-white border border-emerald-200 text-xs font-bold flex flex-col items-start gap-1 transition-all cursor-pointer shadow-2xs group"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 group-hover:text-white" />
+                      <span>Approve & Welcome</span>
+                    </div>
+                    <span className="text-[10px] text-[#7A7566] group-hover:text-white/80 font-normal">
+                      Zone assignment & setup rules
+                    </span>
+                  </button>
+
+                  {/* Payment Confirmed Pass */}
+                  <button
+                    type="button"
+                    onClick={() => onOpenEmailModal(selectedAppForModal, 'vendor_payment_confirmed')}
+                    className="p-2.5 rounded-xl bg-white hover:bg-[#2D5A27] text-[#2D5A27] hover:text-white border border-[#E8E2D6] text-xs font-bold flex flex-col items-start gap-1 transition-all cursor-pointer shadow-2xs group"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-emerald-600 group-hover:text-white" />
+                      <span>Payment Confirmed</span>
+                    </div>
+                    <span className="text-[10px] text-[#7A7566] group-hover:text-white/80 font-normal">
+                      Verified receipt & booth pass
+                    </span>
+                  </button>
+
+                  {/* App Received */}
+                  <button
+                    type="button"
+                    onClick={() => onOpenEmailModal(selectedAppForModal, 'vendor_app_received')}
+                    className="p-2.5 rounded-xl bg-white hover:bg-[#5A5A40] text-[#3D3A30] hover:text-white border border-[#E8E2D6] text-xs font-bold flex flex-col items-start gap-1 transition-all cursor-pointer shadow-2xs group"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <FileText className="w-3.5 h-3.5 text-[#5A5A40] group-hover:text-white" />
+                      <span>App Received</span>
+                    </div>
+                    <span className="text-[10px] text-[#7A7566] group-hover:text-white/80 font-normal">
+                      Confirmation & jury timeline
+                    </span>
+                  </button>
+
+                  {/* Waitlist */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onUpdateStatus(selectedAppForModal.id, { status: 'waitlist' });
+                      onOpenEmailModal(selectedAppForModal, 'vendor_waitlist');
+                    }}
+                    className="p-2.5 rounded-xl bg-white hover:bg-stone-700 text-stone-700 hover:text-white border border-[#E8E2D6] text-xs font-bold flex flex-col items-start gap-1 transition-all cursor-pointer shadow-2xs group"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-stone-600 group-hover:text-white" />
+                      <span>Waitlist Status</span>
+                    </div>
+                    <span className="text-[10px] text-[#7A7566] group-hover:text-white/80 font-normal">
+                      Category capacity notice
+                    </span>
+                  </button>
+
+                  {/* Custom Message */}
+                  <button
+                    type="button"
+                    onClick={() => onOpenEmailModal(selectedAppForModal, 'applicant_custom_message')}
+                    className="p-2.5 rounded-xl bg-white hover:bg-[#5A5A40] text-[#5A5A40] hover:text-white border border-[#E8E2D6] text-xs font-bold flex flex-col items-start gap-1 transition-all cursor-pointer shadow-2xs group"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <Send className="w-3.5 h-3.5 text-[#5A5A40] group-hover:text-white" />
+                      <span>Custom Message</span>
+                    </div>
+                    <span className="text-[10px] text-[#7A7566] group-hover:text-white/80 font-normal">
+                      Direct organizer update
+                    </span>
                   </button>
                 </div>
               </div>
@@ -953,6 +1071,7 @@ export function VendorApplicationsTab({
                 {/* Booth Details */}
                 <div className="p-4 rounded-xl bg-[#FDFBF7] border border-[#E8E2D6] space-y-2">
                   <div className="text-xs font-bold uppercase text-[#7A7566] tracking-wider">Space & Pricing Applied</div>
+                  <div><strong>What Kind Of Vendor Are You?:</strong> <span className="font-semibold text-[#5A5A40]">{selectedAppForModal.vendorKind || 'Certified Farmer'}</span></div>
                   <div><strong>Space Tier:</strong> {BOOTH_TIERS.find(b => b.id === selectedAppForModal.selectedBoothId)?.name || selectedAppForModal.selectedBoothId}</div>
                   <div><strong>Selected Sessions:</strong> {selectedAppForModal.selectedDays.map(d => d.toUpperCase()).join(', ')} ({selectedAppForModal.selectedDays.length} sessions)</div>
                   <div><strong>Calculated Fee:</strong> ${selectedAppForModal.totalCalculatedFee}</div>
@@ -1226,6 +1345,21 @@ export function VendorApplicationsTab({
                     className="w-full px-3 py-2 rounded-xl border border-[#E8E2D6]"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-[#7A7566] mb-1">What Kind Of Vendor Are You? *</label>
+                <select
+                  value={newForm.vendorKind}
+                  onChange={(e) => setNewForm({ ...newForm, vendorKind: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl border border-[#E8E2D6]"
+                >
+                  {VENDOR_KIND_OPTIONS.map((kind) => (
+                    <option key={kind} value={kind}>
+                      {kind}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="grid grid-cols-2 gap-3">

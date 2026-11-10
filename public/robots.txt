@@ -1,5 +1,27 @@
+# Robots.txt for Sky's Events & Community Vendor Marketplace
+# Supports https://www.skysevents.online and https://skysevents.online
+
 User-agent: *
 Allow: /
+Allow: /#events
+Allow: /#schedule
+Allow: /#categories
+Allow: /#vendor-booking
+Allow: /#experience
+Allow: /#gallery
+Allow: /sitemap.xml
+Allow: /sitemap_index.xml
 
-# Direct Google & Major Search Engines to XML Sitemap
+# Restricted administrative portals and checkout invoices
+Disallow: /kingadmin
+Disallow: /kingadmin/
+Disallow: /api/
+Disallow: /*?invoice=*
+Disallow: /*?inv=*
+Disallow: /*?checkout=*
+
+# Sitemaps
+Sitemap: https://www.skysevents.online/sitemap_index.xml
+Sitemap: https://www.skysevents.online/sitemap.xml
+Sitemap: https://skysevents.online/sitemap_index.xml
 Sitemap: https://skysevents.online/sitemap.xml

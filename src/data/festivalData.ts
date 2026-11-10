@@ -1,4 +1,5 @@
 import { BoothTier, FestivalDay, MarketCategory, ScheduleEvent, VendorSpotlight } from '../types';
+import { MIAMI_FARMERS_MARKET_SCHEDULE_EVENTS } from './miamiFarmersMarketEvents';
 import vendorBotanicalImg from '../assets/images/vendor_botanical_booth_1787757236889.jpg';
 import vendorFoodTruckImg from '../assets/images/vendor_food_truck_1787757253971.jpg';
 import vendorJewelryImg from '../assets/images/vendor_jewelry_tent_1787757268227.jpg';
@@ -414,6 +415,15 @@ export const SCHEDULE_EVENTS: ScheduleEvent[] = [
     description: 'Sample gourmet dinners and sweet treats as golden hour sets over the festival grounds.',
     type: 'food',
   },
+  {
+    id: 'sch-4b',
+    day: 'fri',
+    time: '5:30 PM – 7:30 PM',
+    title: 'Sunset Waterfront Concert & Twilight Social Hour',
+    location: 'Riverfront Pavilion & Promenade',
+    description: 'Live acoustic sets along the water with twilight food truck dining, local craft beverage tastings, and golden hour artisan shopping.',
+    type: 'entertainment',
+  },
 
   // Day 2
   {
@@ -461,6 +471,15 @@ export const SCHEDULE_EVENTS: ScheduleEvent[] = [
     description: 'Free creative crafts, interactive games, and face painting for children.',
     type: 'kids',
   },
+  {
+    id: 'sch-9b',
+    day: 'sat',
+    time: '5:30 PM – 8:00 PM',
+    title: 'Golden Hour Artisan Showcase & Live String Ensemble',
+    location: 'Central Pavilion Lawn & Food Row',
+    description: 'Ambient strings, illuminated evening artisan exhibits, and sunset outdoor dining under festoon lighting along the central lawn.',
+    type: 'entertainment',
+  },
 
   // Day 3
   {
@@ -499,6 +518,7 @@ export const SCHEDULE_EVENTS: ScheduleEvent[] = [
     description: 'Best in Show booth awards, customer raffle giveaways, and sunset closing celebration.',
     type: 'entertainment',
   },
+  ...MIAMI_FARMERS_MARKET_SCHEDULE_EVENTS,
 ];
 
 export const VENDOR_SPOTLIGHTS: VendorSpotlight[] = [
@@ -694,44 +714,6 @@ export const VENDOR_POLICIES_FAQ: FaqItem[] = [
     q: 'What accessibility accommodations (ADA compliance) are in place?',
     a: 'The entire festival grounds, artisan aisles, restrooms, and food truck concourses feature paved, wide, level pathways designed for full ADA wheelchair, scooter, and stroller accessibility. Reserved ADA parking spaces are situated adjacent to the primary entrance pavilion.',
     keywords: ['ADA accessible festival', 'wheelchair friendly', 'accessible restrooms', 'stroller friendly', 'paved walkways']
-  },
-
-  // 8. Dating, Singles Mixers & Romantic Events FAQ
-  {
-    category: 'Dating & Singles Events',
-    q: 'Can dating services, matchmaking agencies, and singles event organizers apply for a vendor booth?',
-    a: 'Absolutely! We warmly welcome matchmaking businesses, certified dating coaches, singles social clubs, relationship authors, and dating app platforms. Dating service vendors can book our 10×10 Canopy or 10×20 Double Pavilion spaces to host interactive speed-dating micro-sessions, dating profile consultations, photo portrait mini-shoots, and relationship workshops.',
-    keywords: ['dating services vendor', 'matchmaking booth', 'singles event organizers', 'speed dating festival booth', 'dating app pop-up', 'dating coach booth', 'singles mixer sponsor']
-  },
-  {
-    category: 'Dating & Singles Events',
-    q: 'What singles mixer events, speed dating activities, and social meetups happen at the festival?',
-    a: 'Our festival features daily Singles Social Mixers every Friday, Saturday, and Sunday evening from 5:30 PM to 8:30 PM at the Sunset Riverfront Pavilion. Activities include Color-Coded Singles Icebreaker Wristbands (Green: Single & Ready to Mingle; Yellow: It’s Complicated; Red: Taken/Coupled), 5-minute mini speed-dating rounds, collaborative artisan trivia, and lawn games.',
-    keywords: ['singles mixer festival', 'speed dating meetup', 'singles icebreaker wristbands', 'outdoor singles event', 'singles social hour', 'adult singles gathering', 'local singles meetups']
-  },
-  {
-    category: 'Dating & Singles Events',
-    q: 'Is the festival a great date night destination for couples and first dates?',
-    a: 'The festival is rated as one of the top outdoor date night ideas in the region. Couples and first-date attendees enjoy sunset strolls along the waterfront artisan promenade, candlelit food truck dining tables, craft beer and artisanal wine tastings, live acoustic jazz duos, and hands-on couples pottery/jewelry craft workshops.',
-    keywords: ['date night festival', 'first date ideas outdoor', 'romantic date night', 'couple activities festival', 'sunset date promenade', 'craft date night', 'romantic food trucks']
-  },
-  {
-    category: 'Dating & Singles Events',
-    q: 'What dating-themed gifts, couple merchandise, and romantic artisan items are available?',
-    a: 'Our artisan village features over 40 makers specializing in romantic handmade gifts: custom anniversary jewelry, engraved matching bracelets, couples soy wax massage candles, romantic letterpress poetry, gourmet artisan chocolates, and custom couple silhouette illustrations.',
-    keywords: ['romantic artisan gifts', 'couple jewelry handmade', 'anniversary gifts', 'romantic chocolates', 'custom couple portrait', 'date night shopping']
-  },
-  {
-    category: 'Dating & Singles Events',
-    q: 'How does the Singles Festival Passport & Date Night Scavenger Hunt work?',
-    a: 'Attendees can pick up a free Singles Festival Passport or Couples Date Night Discovery Card at the Info Booth. Singles visit participating vendor booths to collect stamps and secret icebreaker conversation starters, earning entries into our Grand Singles Sunset Cruise & Romantic Dinner Raffle.',
-    keywords: ['singles passport', 'date night scavenger hunt', 'singles networking', 'festival raffle', 'icebreaker conversation starters']
-  },
-  {
-    category: 'Dating & Singles Events',
-    q: 'Are there age-specific dating zones (e.g., 20s-30s, 40+, 50+ singles)?',
-    a: 'Yes, our Sunset Social Lounge hosts scheduled age-tiered mixers: Young Professionals (21–35) on Friday evening, All-Ages Social & Speed Dating on Saturday afternoon, and Vibrant 40+ & Mature Singles Mixer on Sunday afternoon, followed by our Open Romantic Twilight Stroll.',
-    keywords: ['young professionals singles', '40+ singles mixer', 'mature dating festival', 'age tiered singles event', 'sunday singles social']
   }
 ];
 

@@ -195,7 +195,7 @@ export const Hero: React.FC<HeroProps> = ({ onOpenAttendeeModal, onScrollToVendo
             </div>
 
             {/* Location & Inquiries Notice */}
-            <div className="pt-3 space-y-2 border-t border-[#E8E2D6]">
+            <div className="pt-3 border-t border-[#E8E2D6]">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between text-xs text-[#7A7566] gap-2">
                 <div className="flex items-center gap-1.5">
                   <MapPin className="w-4 h-4 text-[#5A5A40] shrink-0" />
@@ -204,11 +204,6 @@ export const Hero: React.FC<HeroProps> = ({ onOpenAttendeeModal, onScrollToVendo
                 <div>
                   Inquiries: <span className="font-bold text-[#5A5A40] font-mono">{FESTIVAL_CONTACT_EMAIL}</span>
                 </div>
-              </div>
-
-              {/* Types of Vendor in this location */}
-              <div className="pt-1">
-                <TypesOfVendorBadge label="Types of Vendor:" size="sm" />
               </div>
             </div>
           </div>

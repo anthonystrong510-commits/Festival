@@ -74,7 +74,41 @@ export const NationwideVendorDirectory: React.FC<NationwideVendorDirectoryProps>
   const [miamiSyncNotice, setMiamiSyncNotice] = useState<string | null>(null);
   const [activeImageByLocId, setActiveImageByLocId] = useState<Record<string, string>>({});
   const [weekendFilter, setWeekendFilter] = useState<'ALL' | 'DEC' | 'JAN'>('ALL');
-  const [showAll100Events, setShowAll100Events] = useState<boolean>(true);
+  const [showAll100Events, setShowAll100Events] = useState<boolean>(false);
+
+  // Listen for Navbar quick-jump filter events
+  useEffect(() => {
+    const handleNavFilter = (e: Event) => {
+      const detail = (e as CustomEvent).detail || {};
+      if (detail.weekend) {
+        setWeekendFilter(detail.weekend);
+      }
+      if (detail.stateCode) {
+        setSelectedStateCode(detail.stateCode);
+      }
+      if (detail.city) {
+        setSelectedCityFilter(detail.city);
+        setSearchQuery(detail.city);
+      }
+      if (detail.viewMode) {
+        setViewMode(detail.viewMode);
+      }
+      if (detail.openStatesDirectory !== undefined) {
+        setShowAllStatesDirectory(Boolean(detail.openStatesDirectory));
+      }
+      if (detail.reset) {
+        setSearchQuery('');
+        setSelectedCategory('all');
+        setSelectedDay('all');
+        setSelectedStateCode('ALL');
+        setSelectedRegion('All');
+        setSelectedCityFilter(null);
+        setWeekendFilter('ALL');
+      }
+    };
+    window.addEventListener('festival:filter-directory', handleNavFilter);
+    return () => window.removeEventListener('festival:filter-directory', handleNavFilter);
+  }, []);
 
   // Only show active, non-past event locations to public visitors
   const upcomingEventLocations = useMemo(() => {
@@ -383,6 +417,7 @@ export const NationwideVendorDirectory: React.FC<NationwideVendorDirectoryProps>
     setOnlyActiveLocationsFilter(false);
     setExpandedStateCode(null);
     setShowAllStatesDirectory(false);
+    setWeekendFilter('ALL');
   };
 
   const activeFiltersCount = useMemo(() => {
@@ -395,8 +430,9 @@ export const NationwideVendorDirectory: React.FC<NationwideVendorDirectoryProps>
     if (selectedCityFilter !== null) count++;
     if (onlyOver200kFilter) count++;
     if (onlyActiveLocationsFilter) count++;
+    if (weekendFilter !== 'ALL') count++;
     return count;
-  }, [searchQuery, selectedCategory, selectedDay, selectedStateCode, selectedRegion, selectedCityFilter, onlyOver200kFilter, onlyActiveLocationsFilter]);
+  }, [searchQuery, selectedCategory, selectedDay, selectedStateCode, selectedRegion, selectedCityFilter, onlyOver200kFilter, onlyActiveLocationsFilter, weekendFilter]);
 
   const handleDownloadCalendar = (eventTitle: string, eventTime: string) => {
     const icsContent = `BEGIN:VCALENDAR
@@ -432,24 +468,28 @@ END:VCALENDAR`;
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* Section Header */}
-        <div className="text-center max-w-3xl mx-auto mb-10 sm:mb-12 space-y-3">
-          <div className="inline-flex items-center gap-1.5 px-4 py-1 rounded-full text-xs font-bold uppercase tracking-widest text-[#5A5A40] bg-[#F0EBE0] border border-[#E8E2D6]">
+        <div className="text-center max-w-3xl mx-auto mb-8 sm:mb-10 space-y-2.5">
+          <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-bold uppercase tracking-widest text-[#5A5A40] bg-[#F0EBE0] border border-[#E8E2D6]">
             <CalendarDays className="w-3.5 h-3.5 text-[#5A5A40]" />
-            Official Events & Nationwide Markets Directory
+            <span>Nationwide Events &amp; Markets Directory</span>
           </div>
 
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-serif italic font-bold text-[#3D3A30]">
-            Events & Nationwide Tour
+          <h2 className="text-2xl sm:text-4xl lg:text-5xl font-serif italic font-bold text-[#3D3A30]">
+            Events &amp; Nationwide Tour
           </h2>
 
-          <p className="text-[#6B6658] text-base sm:text-lg">
-            Discover scheduled festival concerts, artisan showcases, food truck rallies, and explore vendor opportunities across all 50 US States and <strong>{totalCitiesOver200kCount}+ cities over 200,000 population</strong> nationwide.
+          <p className="text-[#6B6658] text-sm sm:text-base max-w-2xl mx-auto">
+            Browse <strong>{filteredUpcomingEventLocations.length} upcoming market events</strong> across all 50 US states. Use the collapsible filter drawer below to filter by weekend dates, metropolitan cities, or regions.
           </p>
         </div>
 
-        {/* Mobile & Tablet Filter Bar (Visible on < lg) */}
-        <div className="lg:hidden bg-[#FAF8F5] rounded-3xl p-4 sm:p-5 border border-[#E8E2D6] shadow-xs mb-6 space-y-3">
-          <div className="flex gap-2">
+        {/* ============================================================ */}
+        {/* UNIFIED COMPACT SEARCH BAR & COLLAPSIBLE FILTER DRAWER       */}
+        {/* ============================================================ */}
+        <div className="bg-[#FAF8F5] rounded-3xl p-4 sm:p-5 border border-[#E8E2D6] shadow-2xs mb-8 space-y-3">
+          {/* Top Row: Search Input + State Select + Collapsible Filters Button */}
+          <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2.5">
+            {/* Search Input */}
             <div className="relative flex-1">
               <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#7A7566]" />
               <input
@@ -461,8 +501,8 @@ END:VCALENDAR`;
                     setSelectedCityFilter(null);
                   }
                 }}
-                placeholder="Search events, cities, or states..."
-                className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-[#E8E2D6] bg-white text-xs text-[#3D3A30] placeholder-[#7A7566] focus:outline-none focus:ring-2 focus:ring-[#5A5A40]"
+                placeholder="Search by city, state, venue, or event name..."
+                className="w-full pl-10 pr-9 py-2.5 rounded-xl border border-[#E8E2D6] bg-white text-xs sm:text-sm text-[#3D3A30] placeholder-[#7A7566] focus:outline-none focus:ring-2 focus:ring-[#5A5A40] transition-all"
               />
               {searchQuery && (
                 <button
@@ -471,444 +511,77 @@ END:VCALENDAR`;
                     setSearchQuery('');
                     setSelectedCityFilter(null);
                   }}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] bg-[#E8E2D6] px-2 py-0.5 rounded-md font-bold text-[#3D3A30]"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] bg-[#E8E2D6] hover:bg-[#D4CDBE] px-2 py-0.5 rounded-md font-bold text-[#3D3A30] cursor-pointer"
                 >
                   ✕
                 </button>
               )}
             </div>
 
+            {/* State Quick Select */}
+            <div className="relative sm:w-60 shrink-0">
+              <select
+                value={selectedStateCode}
+                onChange={(e) => {
+                  setSelectedStateCode(e.target.value);
+                  if (e.target.value !== 'ALL') setExpandedStateCode(e.target.value);
+                }}
+                className="w-full pl-3.5 pr-9 py-2.5 rounded-xl border border-[#E8E2D6] bg-white text-xs sm:text-sm text-[#3D3A30] font-semibold appearance-none focus:outline-none focus:ring-2 focus:ring-[#5A5A40] cursor-pointer"
+              >
+                <option value="ALL">All 50 US States ({upcomingEventLocations.length} Events)</option>
+                {stateOptions.map((st) => (
+                  <option key={st.code} value={st.code}>
+                    {st.name} ({st.code}) — {st.region}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="w-4 h-4 text-[#7A7566] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
+
+            {/* Collapsible Filter Drawer Button */}
             <button
               type="button"
-              onClick={() => setMobileFiltersOpen(!mobileFiltersOpen)}
-              className={`px-3 py-2.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-colors ${
+              onClick={() => setMobileFiltersOpen((prev) => !prev)}
+              className={`px-4 py-2.5 rounded-xl border text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all cursor-pointer shrink-0 ${
                 mobileFiltersOpen || activeFiltersCount > 0
-                  ? 'bg-[#5A5A40] text-white border-[#5A5A40]'
-                  : 'bg-white border-[#E8E2D6] text-[#5A5A40]'
+                  ? 'bg-[#5A5A40] text-white border-[#5A5A40] shadow-xs'
+                  : 'bg-white border-[#E8E2D6] text-[#3D3A30] hover:bg-[#F0EBE0]'
               }`}
             >
-              <SlidersHorizontal className="w-3.5 h-3.5" />
-              <span>Filters</span>
+              <SlidersHorizontal className="w-4 h-4" />
+              <span>{mobileFiltersOpen ? 'Hide Filters & Info' : 'More Filters & Cities'}</span>
               {activeFiltersCount > 0 && (
-                <span className="w-4 h-4 rounded-full bg-white text-[#5A5A40] text-[10px] font-black flex items-center justify-center">
+                <span className="px-1.5 py-0.2 rounded-full bg-white text-[#5A5A40] text-[10px] font-black">
                   {activeFiltersCount}
                 </span>
               )}
+              <ChevronDown
+                className={`w-4 h-4 transition-transform duration-200 ${
+                  mobileFiltersOpen ? 'rotate-180' : ''
+                }`}
+              />
             </button>
           </div>
 
-          {/* Quick horizontal view mode buttons */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
-            {[
-              { id: 'all', label: 'All Events & Search' },
-              { id: 'scheduled', label: 'Festival Stages' },
-              { id: 'states', label: 'Search Locations' },
-            ].map(tab => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setViewMode(tab.id as EventViewMode)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors ${
-                  viewMode === tab.id
-                    ? 'bg-[#5A5A40] text-white shadow-xs'
-                    : 'bg-white border border-[#E8E2D6] text-[#6B6658]'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Expandable Mobile Filter Drawer */}
-          {mobileFiltersOpen && (
-            <div className="pt-3 border-t border-[#E8E2D6] space-y-4">
-              {/* Category Pills */}
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-bold uppercase tracking-wider text-[#7A7566] block">
-                  Category:
-                </label>
-                <div className="flex flex-wrap gap-1.5">
-                  {[
-                    { id: 'all', label: 'All Categories' },
-                    { id: 'artisan', label: 'Artisan Crafts' },
-                    { id: 'food', label: 'Food & Culinary' },
-                    { id: 'music', label: 'Live Music' },
-                    { id: 'family', label: 'Family & Community' }
-                  ].map(cat => (
-                    <button
-                      key={cat.id}
-                      type="button"
-                      onClick={() => setSelectedCategory(cat.id as CategoryFilter)}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
-                        selectedCategory === cat.id
-                          ? 'bg-[#5A5A40] text-white'
-                          : 'bg-white border border-[#E8E2D6] text-[#3D3A30]'
-                      }`}
-                    >
-                      {cat.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* State Dropdown */}
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-bold uppercase tracking-wider text-[#7A7566] block">
-                  US State:
-                </label>
-                <select
-                  value={selectedStateCode}
-                  onChange={(e) => {
-                    setSelectedStateCode(e.target.value);
-                    if (e.target.value !== 'ALL') setExpandedStateCode(e.target.value);
-                  }}
-                  className="w-full px-3 py-2 rounded-xl border border-[#E8E2D6] bg-white text-xs text-[#3D3A30] font-medium"
-                >
-                  <option value="ALL">All 50 US States & D.C. ({USA_STATES_CITIES_DATA.length})</option>
-                  {stateOptions.map(st => (
-                    <option key={st.code} value={st.code}>
-                      {st.name} ({st.code}) — {st.region}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Quick Toggles */}
-              <div className="flex flex-wrap gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={() => setOnlyOver200kFilter(!onlyOver200kFilter)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors ${
-                    onlyOver200kFilter
-                      ? 'bg-[#5A5A40] text-white border-[#5A5A40]'
-                      : 'bg-white border-[#E8E2D6] text-[#5A5A40]'
-                  }`}
-                >
-                  Cities &gt;200k ({totalCitiesOver200kCount})
-                </button>
-                {activeFiltersCount > 0 && (
-                  <button
-                    type="button"
-                    onClick={handleResetFilters}
-                    className="px-3 py-1.5 rounded-xl bg-white border border-[#E8E2D6] text-[#5A5A40] text-xs font-bold flex items-center gap-1"
-                  >
-                    <RotateCcw className="w-3 h-3" />
-                    <span>Reset All</span>
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Responsive Main Layout: Sidebar on Big Screens (`lg:flex`) */}
-        <div className="flex flex-col lg:flex-row gap-8 items-start">
-          
-          {/* ============================================================ */}
-          {/* DESKTOP SIDEBAR FOR FILTERS (Big screens sticky sidebar)     */}
-          {/* ============================================================ */}
-          <aside className="hidden lg:block w-80 shrink-0 sticky top-24 self-start bg-[#FAF8F5] rounded-3xl p-6 border border-[#E8E2D6] shadow-sm space-y-6 max-h-[calc(100vh-7rem)] overflow-y-auto">
-            
-            {/* Sidebar Title & Reset Action */}
-            <div className="flex items-center justify-between pb-3 border-b border-[#E8E2D6]">
-              <div className="flex items-center gap-2">
-                <Filter className="w-4 h-4 text-[#5A5A40]" />
-                <h3 className="font-serif italic font-bold text-lg text-[#3D3A30]">
-                  Filter Events
-                </h3>
-              </div>
-              {activeFiltersCount > 0 && (
-                <button
-                  type="button"
-                  onClick={handleResetFilters}
-                  className="text-xs text-[#5A5A40] font-bold hover:underline flex items-center gap-1 cursor-pointer"
-                  title="Reset all filters"
-                >
-                  <RotateCcw className="w-3 h-3" />
-                  <span>Reset ({activeFiltersCount})</span>
-                </button>
-              )}
-            </div>
-
-            {/* 1. Free Text Search Bar */}
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-bold uppercase tracking-wider text-[#7A7566] block">
-                Search Directory:
-              </label>
-              <div className="relative">
-                <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#7A7566]" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => {
-                    setSearchQuery(e.target.value);
-                    if (selectedCityFilter && e.target.value !== selectedCityFilter) {
-                      setSelectedCityFilter(null);
-                    }
-                  }}
-                  placeholder="City, state, music, artisan..."
-                  className="w-full pl-10 pr-9 py-2.5 rounded-xl border border-[#E8E2D6] bg-white text-xs text-[#3D3A30] placeholder-[#7A7566] focus:outline-none focus:ring-2 focus:ring-[#5A5A40] transition-all"
-                />
-                {searchQuery && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSearchQuery('');
-                      setSelectedCityFilter(null);
-                    }}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] bg-[#E8E2D6] hover:bg-[#D4CDBE] px-1.5 py-0.5 rounded text-[#3D3A30] font-bold"
-                  >
-                    ✕
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* 2. View Mode Tabs */}
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-bold uppercase tracking-wider text-[#7A7566] block">
-                Display View:
-              </label>
-              <div className="grid grid-cols-1 gap-1.5 bg-white p-1 rounded-2xl border border-[#E8E2D6]">
-                {[
-                  { id: 'all', label: 'All Events & Search', count: filteredScheduledEvents.length },
-                  { id: 'scheduled', label: 'Festival Stage Program', count: filteredScheduledEvents.length },
-                  { id: 'states', label: 'Tour Locations (Search)', count: hasLocationFilter ? filteredStates.length : 'Search' },
-                ].map(item => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => setViewMode(item.id as EventViewMode)}
-                    className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center justify-between transition-all cursor-pointer ${
-                      viewMode === item.id
-                        ? 'bg-[#5A5A40] text-white shadow-xs'
-                        : 'text-[#6B6658] hover:bg-[#FAF8F5] hover:text-[#3D3A30]'
-                    }`}
-                  >
-                    <span>{item.label}</span>
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full ${
-                      viewMode === item.id ? 'bg-white/20 text-white' : 'bg-[#E8E2D6] text-[#5A5A40]'
-                    }`}>
-                      {item.count}
+          {/* Active Filters Compact Pill Strip (Only visible when a filter is active) */}
+          {activeFiltersCount > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[#E8E2D6] text-xs">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-[#7A7566] font-semibold">Active Filters:</span>
+                {weekendFilter !== 'ALL' && (
+                  <span className="px-2.5 py-1 rounded-lg bg-[#5A5A40] text-white font-bold flex items-center gap-1">
+                    <span>
+                      {weekendFilter === 'DEC' ? 'Dec 18–20, 2026' : 'Jan 29–31, 2027'}
                     </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* 3. Category Filter */}
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-bold uppercase tracking-wider text-[#7A7566] block">
-                Category:
-              </label>
-              <div className="space-y-1">
-                {[
-                  { id: 'all', label: 'All Categories', icon: Sparkles },
-                  { id: 'artisan', label: 'Artisan Crafts & Makers', icon: Store },
-                  { id: 'food', label: 'Food Trucks & Culinary', icon: UtensilsCrossed },
-                  { id: 'music', label: 'Live Concerts & Stages', icon: Music },
-                  { id: 'family', label: 'Family & Community', icon: Users },
-                ].map(cat => {
-                  const Icon = cat.icon;
-                  const isSelected = selectedCategory === cat.id;
-                  return (
                     <button
-                      key={cat.id}
                       type="button"
-                      onClick={() => setSelectedCategory(cat.id as CategoryFilter)}
-                      className={`w-full px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
-                        isSelected
-                          ? 'bg-[#5A5A40] text-white shadow-xs font-bold'
-                          : 'bg-white border border-[#E8E2D6] text-[#3D3A30] hover:bg-[#FAF8F5]'
-                      }`}
+                      onClick={() => setWeekendFilter('ALL')}
+                      className="ml-1 hover:text-rose-200 cursor-pointer"
                     >
-                      <Icon className="w-3.5 h-3.5" />
-                      <span>{cat.label}</span>
+                      ×
                     </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* 4. State Select Dropdown */}
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-bold uppercase tracking-wider text-[#7A7566] block">
-                US State:
-              </label>
-              <div className="relative">
-                <select
-                  value={selectedStateCode}
-                  onChange={(e) => {
-                    setSelectedStateCode(e.target.value);
-                    if (e.target.value !== 'ALL') {
-                      setExpandedStateCode(e.target.value);
-                    }
-                  }}
-                  className="w-full px-3 py-2.5 rounded-xl border border-[#E8E2D6] bg-white text-xs text-[#3D3A30] font-medium focus:outline-none focus:ring-2 focus:ring-[#5A5A40] transition-all appearance-none cursor-pointer"
-                >
-                  <option value="ALL">All 50 US States & D.C. ({USA_STATES_CITIES_DATA.length})</option>
-                  {stateOptions.map((st) => (
-                    <option key={st.code} value={st.code}>
-                      {st.name} ({st.code}) — {st.region}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="w-3.5 h-3.5 text-[#7A7566] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-              </div>
-            </div>
-
-            {/* 5. US Region Filter Chips */}
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-bold uppercase tracking-wider text-[#7A7566] block">
-                US Region:
-              </label>
-              <div className="flex flex-wrap gap-1">
-                {regions.map((region) => (
-                  <button
-                    key={region}
-                    type="button"
-                    onClick={() => setSelectedRegion(region)}
-                    className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-colors cursor-pointer ${
-                      selectedRegion === region
-                        ? 'bg-[#5A5A40] text-white shadow-xs'
-                        : 'bg-white border border-[#E8E2D6] text-[#5A5A40] hover:bg-[#F0EBE0]'
-                    }`}
-                  >
-                    {region}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* 6. Quick Filter Toggles */}
-            <div className="space-y-2 pt-2 border-t border-[#E8E2D6]">
-              <label className="text-[11px] font-bold uppercase tracking-wider text-[#7A7566] block">
-                Market Criteria:
-              </label>
-
-              {/* 200k+ Cities Toggle */}
-              <button
-                type="button"
-                onClick={() => setOnlyOver200kFilter(!onlyOver200kFilter)}
-                className={`w-full p-2.5 rounded-xl border text-xs font-bold flex items-center justify-between transition-all cursor-pointer ${
-                  onlyOver200kFilter
-                    ? 'bg-[#5A5A40] text-white border-[#5A5A40] shadow-xs'
-                    : 'bg-white border-[#E8E2D6] text-[#5A5A40] hover:bg-[#FAF8F5]'
-                }`}
-              >
-                <span className="flex items-center gap-1.5">
-                  <TrendingUp className="w-3.5 h-3.5" />
-                  <span>Cities &gt;200k Pop</span>
-                </span>
-                <span className="text-[10px] font-mono font-black">
-                  {totalCitiesOver200kCount}
-                </span>
-              </button>
-
-              {/* Active Scheduled Locations Toggle */}
-              <button
-                type="button"
-                onClick={() => setOnlyActiveLocationsFilter(!onlyActiveLocationsFilter)}
-                className={`w-full p-2.5 rounded-xl border text-xs font-bold flex items-center justify-between transition-all cursor-pointer ${
-                  onlyActiveLocationsFilter
-                    ? 'bg-[#5A5A40] text-white border-[#5A5A40] shadow-xs'
-                    : 'bg-white border-[#E8E2D6] text-[#5A5A40] hover:bg-[#FAF8F5]'
-                }`}
-              >
-                <span className="flex items-center gap-1.5">
-                  <Calendar className="w-3.5 h-3.5" />
-                  <span>Scheduled Market Tour</span>
-                </span>
-                <span className="text-[10px] font-mono font-black">
-                  {upcomingEventLocations.length}
-                </span>
-              </button>
-            </div>
-
-            {/* 7. Festival Days Selector (When viewing scheduled events) */}
-            {(viewMode === 'all' || viewMode === 'scheduled') && (
-              <div className="space-y-1.5 pt-2 border-t border-[#E8E2D6]">
-                <label className="text-[11px] font-bold uppercase tracking-wider text-[#7A7566] block">
-                  Festival Day:
-                </label>
-                <div className="grid grid-cols-2 gap-1 bg-white p-1 rounded-xl border border-[#E8E2D6]">
-                  {[
-                    { id: 'all', label: 'All 3 Days' },
-                    { id: 'fri', label: 'Friday' },
-                    { id: 'sat', label: 'Saturday' },
-                    { id: 'sun', label: 'Sunday' },
-                  ].map(d => (
-                    <button
-                      key={d.id}
-                      type="button"
-                      onClick={() => setSelectedDay(d.id as any)}
-                      className={`px-2 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                        selectedDay === d.id
-                          ? 'bg-[#5A5A40] text-white shadow-xs'
-                          : 'text-[#6B6658] hover:text-[#3D3A30] hover:bg-[#FAF8F5]'
-                      }`}
-                    >
-                      {d.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* 8. Types of Vendor Checkbox Filters */}
-            <div className="space-y-1.5 pt-2 border-t border-[#E8E2D6]">
-              <label className="text-[11px] font-bold uppercase tracking-wider text-[#7A7566] block">
-                Types of Vendor Accepted:
-              </label>
-              <div className="space-y-1 bg-white p-2 rounded-xl border border-[#E8E2D6]">
-                {VENDOR_TYPES.map(type => {
-                  const isChecked = selectedVendorTypes.includes(type);
-                  return (
-                    <button
-                      key={type}
-                      type="button"
-                      onClick={() => handleToggleVendorType(type)}
-                      className="w-full flex items-center justify-between text-xs py-1 px-1.5 rounded hover:bg-[#FAF8F5] transition-colors text-left"
-                    >
-                      <span className="text-[#3D3A30] font-medium">{type}</span>
-                      <GreenCheckboxIcon checked={isChecked} className="w-3.5 h-3.5" />
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Reset Button at bottom of sidebar */}
-            {activeFiltersCount > 0 && (
-              <button
-                type="button"
-                onClick={handleResetFilters}
-                className="w-full py-2.5 rounded-xl bg-white hover:bg-[#FAF8F5] border border-[#E8E2D6] text-[#5A5A40] font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                <span>Reset All Filters</span>
-              </button>
-            )}
-
-          </aside>
-
-          {/* ============================================================ */}
-          {/* MAIN CONTENT AREA (Events List & States Grid)                */}
-          {/* ============================================================ */}
-          <div className="flex-1 min-w-0 space-y-8">
-            
-            {/* Active Filters Summary Strip */}
-            <div className="bg-[#FAF8F5] rounded-2xl p-3.5 sm:p-4 border border-[#E8E2D6] flex flex-wrap items-center justify-between gap-3 text-xs">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="font-bold text-[#3D3A30]">
-                  Results:
-                </span>
-                <span className="px-2.5 py-1 rounded-lg bg-white border border-[#E8E2D6] text-[#5A5A40] font-semibold">
-                  {filteredStates.length} States
-                </span>
-                <span className="px-2.5 py-1 rounded-lg bg-white border border-[#E8E2D6] text-[#5A5A40] font-semibold">
-                  {filteredScheduledEvents.length} Scheduled Stages
-                </span>
+                  </span>
+                )}
                 {selectedCityFilter && (
                   <span className="px-2.5 py-1 rounded-lg bg-[#5A5A40] text-white font-bold flex items-center gap-1">
                     <span>City: {selectedCityFilter}</span>
@@ -918,7 +591,7 @@ END:VCALENDAR`;
                         setSelectedCityFilter(null);
                         setSearchQuery('');
                       }}
-                      className="ml-1 hover:text-red-200"
+                      className="ml-1 hover:text-rose-200 cursor-pointer"
                     >
                       ×
                     </button>
@@ -930,7 +603,7 @@ END:VCALENDAR`;
                     <button
                       type="button"
                       onClick={() => setSelectedStateCode('ALL')}
-                      className="ml-1 hover:text-red-200"
+                      className="ml-1 hover:text-rose-200 cursor-pointer"
                     >
                       ×
                     </button>
@@ -942,7 +615,7 @@ END:VCALENDAR`;
                     <button
                       type="button"
                       onClick={() => setSelectedRegion('All')}
-                      className="ml-1 hover:text-red-200"
+                      className="ml-1 hover:text-rose-200 cursor-pointer"
                     >
                       ×
                     </button>
@@ -954,7 +627,7 @@ END:VCALENDAR`;
                     <button
                       type="button"
                       onClick={() => setSelectedCategory('all')}
-                      className="ml-1 hover:text-red-200"
+                      className="ml-1 hover:text-rose-200 cursor-pointer"
                     >
                       ×
                     </button>
@@ -962,113 +635,56 @@ END:VCALENDAR`;
                 )}
               </div>
 
-              {/* View mode toggle for quick desktop switching */}
-              <div className="hidden sm:flex items-center gap-1 bg-white p-1 rounded-xl border border-[#E8E2D6]">
-                {[
-                  { id: 'all', label: 'All' },
-                  { id: 'scheduled', label: 'Stages' },
-                  { id: 'states', label: 'Locations' },
-                ].map(tab => (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => setViewMode(tab.id as EventViewMode)}
-                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${
-                      viewMode === tab.id
-                        ? 'bg-[#5A5A40] text-white'
-                        : 'text-[#6B6658] hover:text-[#3D3A30]'
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
+              <button
+                type="button"
+                onClick={handleResetFilters}
+                className="text-xs font-bold text-[#5A5A40] hover:underline flex items-center gap-1 cursor-pointer"
+              >
+                <RotateCcw className="w-3 h-3" />
+                <span>Reset All</span>
+              </button>
             </div>
+          )}
 
-            {/* Quick Popular Metropolitan City Filter Pills */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-[#7A7566] font-bold flex items-center gap-1">
-                  <Globe2 className="w-3.5 h-3.5 text-[#5A5A40]" />
-                  <span>Popular Metropolitan Markets:</span>
-                </span>
-                <span className="text-[11px] text-[#7A7566]">
-                  Click city to filter state & dates
-                </span>
-              </div>
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
-                {[
-                  { label: 'Miami, FL (Farmers Markets)', city: 'Miami', state: 'FL' },
-                  { label: 'Miami Beach, FL', city: 'Miami Beach', state: 'FL' },
-                  { label: 'Coral Gables, FL', city: 'Coral Gables', state: 'FL' },
-                  { label: 'Houston, TX (2.3M)', city: 'Houston', state: 'TX' },
-                  { label: 'Los Angeles, CA (3.8M)', city: 'Los Angeles', state: 'CA' },
-                  { label: 'Chicago, IL (2.6M)', city: 'Chicago', state: 'IL' },
-                  { label: 'New York City, NY (8.2M)', city: 'New York City', state: 'NY' },
-                  { label: 'Dallas, TX (1.3M)', city: 'Dallas', state: 'TX' },
-                  { label: 'Atlanta, GA (500k)', city: 'Atlanta', state: 'GA' },
-                  { label: 'Charlotte, NC (911k)', city: 'Charlotte', state: 'NC' },
-                  { label: 'Seattle, WA (755k)', city: 'Seattle', state: 'WA' },
-                  { label: 'Denver, CO (713k)', city: 'Denver', state: 'CO' },
-                  { label: 'Columbia, SC (Host City)', city: 'Columbia', state: 'SC' },
-                ].map((item) => (
-                  <button
-                    key={item.label}
-                    type="button"
-                    onClick={() => handleCityClick(item.city, item.state)}
-                    className={`px-3 py-1.5 rounded-xl border whitespace-nowrap font-medium transition-colors cursor-pointer shrink-0 ${
-                      selectedCityFilter === item.city
-                        ? 'bg-[#5A5A40] text-white border-[#5A5A40]'
-                        : 'bg-white border-[#E8E2D6] hover:border-[#5A5A40] text-[#5A5A40]'
-                    }`}
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* ============================================================ */}
-            {/* 100 NATIONWIDE USA STATE EVENTS (ALL 50 STATES • DEC & JAN)  */}
-            {/* ============================================================ */}
-            <div className="bg-[#FAF8F5] rounded-3xl p-5 sm:p-6 border border-[#E8E2D6] space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#E8E2D6] pb-3.5">
-                <div className="space-y-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-widest bg-emerald-100 text-emerald-800 border border-emerald-200">
-                      <CheckCircle2 className="w-3 h-3 text-emerald-700" />
-                      <span>All 50 US States • 100 Major City Events • Fri, Sat &amp; Sun</span>
+          {/* ============================================================ */}
+          {/* COLLAPSIBLE FILTER & TOUR DETAILS PANEL                      */}
+          {/* ============================================================ */}
+          {mobileFiltersOpen && (
+            <div className="pt-4 mt-2 border-t border-[#E8E2D6] space-y-5 animate-in fade-in duration-150">
+              {/* 1. Tour Dates & Weekend Filter */}
+              <div className="bg-white rounded-2xl p-4 border border-[#E8E2D6] space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-[#5A5A40] font-semibold">
+                      <span>All 50 US States · 100 Major City Events · Fri, Sat &amp; Sun</span>
+                      {hiddenPastLocationsCount > 0 && (
+                        <span>· {hiddenPastLocationsCount} past {hiddenPastLocationsCount === 1 ? 'event' : 'events'} auto-hidden</span>
+                      )}
                     </div>
-                    {hiddenPastLocationsCount > 0 && (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-[#F0EBE0] text-[#5A5A40] border border-[#E8E2D6]">
-                        <span>{hiddenPastLocationsCount} past {hiddenPastLocationsCount === 1 ? 'event' : 'events'} auto-hidden</span>
-                      </span>
-                    )}
+                    <p className="text-xs text-[#6B6658] mt-1">
+                      2 premier major-city events in every US state running Friday, Saturday &amp; Sunday on the end week of December (Dec 18–20, 2026) and the end week of January (Jan 29–31, 2027).
+                    </p>
                   </div>
-                  <h3 className="font-serif italic font-bold text-xl sm:text-2xl text-[#3D3A30]">
-                    100 Nationwide State Markets &amp; Street Festivals ({filteredUpcomingEventLocations.length} Showing)
-                  </h3>
-                  <p className="text-xs text-[#6B6658]">
-                    2 premier major-city events in every US state running <strong>Friday, Saturday &amp; Sunday</strong> on the end week of December (<strong>Dec 18–20, 2026</strong>) and the end week of January (<strong>Jan 29–31, 2027</strong>), each with a unique event thumbnail and top city venue.
-                  </p>
-                </div>
 
-                <div className="flex items-center gap-2 shrink-0 flex-wrap">
                   <button
                     type="button"
                     onClick={handleSyncMiamiEvents}
                     disabled={isImportingMiami}
-                    className="px-3.5 py-2 rounded-xl bg-[#5A5A40] hover:bg-[#464632] text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all cursor-pointer disabled:opacity-60"
+                    className="px-3.5 py-2 rounded-xl bg-[#5A5A40] hover:bg-[#464632] text-white text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer disabled:opacity-60 shrink-0 self-start sm:self-center"
                   >
                     <RotateCcw className={`w-3.5 h-3.5 ${isImportingMiami ? 'animate-spin' : ''}`} />
                     <span>{isImportingMiami ? 'Importing...' : 'Sync miamifarmersmarket.org'}</span>
                   </button>
                 </div>
-              </div>
 
-              {/* End-Week Filter Pills (All 100 / Dec 18-20 / Jan 29-31) */}
-              <div className="flex flex-wrap items-center justify-between gap-2 bg-white p-3 rounded-2xl border border-[#E8E2D6]">
-                <div className="flex flex-wrap items-center gap-1.5">
+                {miamiSyncNotice && (
+                  <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-semibold flex items-center gap-2">
+                    <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>{miamiSyncNotice}</span>
+                  </div>
+                )}
+
+                <div className="flex flex-wrap items-center gap-2 pt-1">
                   <button
                     type="button"
                     onClick={() => setWeekendFilter('ALL')}
@@ -1103,48 +719,171 @@ END:VCALENDAR`;
                     Jan 29–31, 2027 • Fri–Sun (50 States)
                   </button>
                 </div>
-
-                {filteredUpcomingEventLocations.length > 16 && (
-                  <button
-                    type="button"
-                    onClick={() => setShowAll100Events((prev) => !prev)}
-                    className="text-xs font-bold text-[#5A5A40] hover:underline cursor-pointer"
-                  >
-                    {showAll100Events
-                      ? 'Compact View (Show Top 16)'
-                      : `Show All ${filteredUpcomingEventLocations.length} Events`}
-                  </button>
-                )}
               </div>
 
-              {miamiSyncNotice && (
-                <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-semibold flex items-center gap-2">
-                  <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>{miamiSyncNotice}</span>
+              {/* 2. Popular Metropolitan Markets */}
+              <div className="bg-white rounded-2xl p-4 border border-[#E8E2D6] space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                  <span className="text-[#3D3A30] font-bold flex items-center gap-1.5">
+                    <Globe2 className="w-3.5 h-3.5 text-[#5A5A40]" />
+                    <span>Popular Metropolitan Markets:</span>
+                  </span>
+                  <span className="text-[11px] text-[#7A7566]">
+                    Click city to filter state &amp; dates
+                  </span>
                 </div>
-              )}
-
-              {/* What Kind Of Vendor Are You? * Summary Strip */}
-              <div className="p-3 rounded-2xl bg-white border border-[#E8E2D6]">
-                <div className="text-[11px] font-bold text-[#3D3A30] mb-1.5">
-                  What Kind Of Vendor Are You? <span className="text-rose-600">*</span> (Accepted at All 100 Nationwide Markets):
-                </div>
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {VENDOR_KIND_OPTIONS.map((kind) => (
-                    <span
-                      key={kind}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-[#FAF8F5] border border-[#E8E2D6] text-[11px] font-semibold text-[#3D3A30]"
+                <div className="flex flex-wrap gap-1.5 text-xs">
+                  {[
+                    { label: 'Miami, FL (Farmers Markets)', city: 'Miami', state: 'FL' },
+                    { label: 'Miami Beach, FL', city: 'Miami Beach', state: 'FL' },
+                    { label: 'Coral Gables, FL', city: 'Coral Gables', state: 'FL' },
+                    { label: 'Houston, TX (2.3M)', city: 'Houston', state: 'TX' },
+                    { label: 'Los Angeles, CA (3.8M)', city: 'Los Angeles', state: 'CA' },
+                    { label: 'Chicago, IL (2.6M)', city: 'Chicago', state: 'IL' },
+                    { label: 'New York City, NY (8.2M)', city: 'New York City', state: 'NY' },
+                    { label: 'Dallas, TX (1.3M)', city: 'Dallas', state: 'TX' },
+                    { label: 'Atlanta, GA (500k)', city: 'Atlanta', state: 'GA' },
+                    { label: 'Charlotte, NC (911k)', city: 'Charlotte', state: 'NC' },
+                    { label: 'Seattle, WA (755k)', city: 'Seattle', state: 'WA' },
+                    { label: 'Denver, CO (713k)', city: 'Denver', state: 'CO' },
+                    { label: 'Columbia, SC (Host City)', city: 'Columbia', state: 'SC' },
+                  ].map((item) => (
+                    <button
+                      key={item.label}
+                      type="button"
+                      onClick={() => handleCityClick(item.city, item.state)}
+                      className={`px-3 py-1.5 rounded-xl border whitespace-nowrap font-medium transition-colors cursor-pointer ${
+                        selectedCityFilter === item.city
+                          ? 'bg-[#5A5A40] text-white border-[#5A5A40]'
+                          : 'bg-[#FAF8F5] border-[#E8E2D6] hover:border-[#5A5A40] text-[#5A5A40]'
+                      }`}
                     >
-                      <GreenCheckboxIcon checked={true} className="w-3.5 h-3.5" />
-                      <span>{kind}</span>
-                    </span>
+                      {item.label}
+                    </button>
                   ))}
                 </div>
               </div>
 
-              {/* Grid of 100 Nationwide Event Locations (Only Upcoming Events Shown) */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {(showAll100Events ? filteredUpcomingEventLocations : filteredUpcomingEventLocations.slice(0, 16))
+              {/* 3. Region, Category & View Mode Filters */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white rounded-2xl p-4 border border-[#E8E2D6]">
+                {/* Display View */}
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-[#7A7566] block">
+                    Display View:
+                  </label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[
+                      { id: 'all', label: 'All Events' },
+                      { id: 'scheduled', label: 'Stage Lineup' },
+                      { id: 'states', label: 'State Guide' },
+                    ].map((tab) => (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        onClick={() => setViewMode(tab.id as EventViewMode)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
+                          viewMode === tab.id
+                            ? 'bg-[#5A5A40] text-white'
+                            : 'bg-[#FAF8F5] border border-[#E8E2D6] text-[#6B6658] hover:text-[#3D3A30]'
+                        }`}
+                      >
+                        {tab.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* US Region */}
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-[#7A7566] block">
+                    US Region:
+                  </label>
+                  <div className="flex flex-wrap gap-1">
+                    {regions.map((region) => (
+                      <button
+                        key={region}
+                        type="button"
+                        onClick={() => setSelectedRegion(region)}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-colors cursor-pointer ${
+                          selectedRegion === region
+                            ? 'bg-[#5A5A40] text-white'
+                            : 'bg-[#FAF8F5] border border-[#E8E2D6] text-[#5A5A40] hover:bg-[#F0EBE0]'
+                        }`}
+                      >
+                        {region}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Category & 200k Cities */}
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-[#7A7566] block">
+                    Category &amp; Options:
+                  </label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[
+                      { id: 'all', label: 'All' },
+                      { id: 'artisan', label: 'Artisan' },
+                      { id: 'food', label: 'Food' },
+                      { id: 'music', label: 'Music' },
+                    ].map((cat) => (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        onClick={() => setSelectedCategory(cat.id as CategoryFilter)}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-colors cursor-pointer ${
+                          selectedCategory === cat.id
+                            ? 'bg-[#5A5A40] text-white'
+                            : 'bg-[#FAF8F5] border border-[#E8E2D6] text-[#3D3A30]'
+                        }`}
+                      >
+                        {cat.label}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => setShowAllStatesDirectory((prev) => !prev)}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-colors cursor-pointer ${
+                        showAllStatesDirectory
+                          ? 'bg-[#5A5A40] text-white border-[#5A5A40]'
+                          : 'bg-[#FAF8F5] border-[#E8E2D6] text-[#5A5A40]'
+                      }`}
+                    >
+                      {showAllStatesDirectory ? 'Hide 50 States Info' : '50 States Tax & Rules'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Main Content Container */}
+        <div className="space-y-10">
+          <div className="min-w-0 space-y-8">
+            <div className="space-y-5">
+              {/* Compact Header Row above Event Cards */}
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h3 className="font-serif italic font-bold text-xl sm:text-2xl text-[#3D3A30]">
+                  Upcoming Markets &amp; Street Festivals ({filteredUpcomingEventLocations.length})
+                </h3>
+                {filteredUpcomingEventLocations.length > 12 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAll100Events((prev) => !prev)}
+                    className="px-3.5 py-1.5 rounded-xl bg-[#FAF8F5] hover:bg-[#F0EBE0] border border-[#E8E2D6] text-xs font-bold text-[#5A5A40] transition-colors cursor-pointer"
+                  >
+                    {showAll100Events
+                      ? 'Show Top 12 Events'
+                      : `View All ${filteredUpcomingEventLocations.length} Nationwide Events`}
+                  </button>
+                )}
+              </div>
+
+              {/* Responsive 1 / 2 / 3 Column Grid of Event Locations */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                {(showAll100Events ? filteredUpcomingEventLocations : filteredUpcomingEventLocations.slice(0, 12))
                   .map((loc) => {
                     const upcomingDates = getUpcomingEventDates(loc.dates);
                     const gallery = loc.images && loc.images.length > 0
@@ -1286,7 +1025,7 @@ END:VCALENDAR`;
                           <button
                             type="button"
                             onClick={() => onOpenVendorModal('tent-10x10', loc.days && loc.days.length > 0 ? loc.days : ['sat', 'sun'])}
-                            className="px-3.5 py-2 rounded-xl bg-[#5A5A40] hover:bg-[#464632] text-white text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                            className="px-3.5 py-2 rounded-xl bg-[#5A5A40] hover:bg-[#464632] text-white text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap shrink-0"
                           >
                             <Store className="w-3.5 h-3.5" />
                             <span>Apply for Booth</span>
@@ -1296,23 +1035,33 @@ END:VCALENDAR`;
                     );
                   })}
               </div>
+
+              {/* Show All / Show Less Toggle at Bottom of Event Grid */}
+              {filteredUpcomingEventLocations.length > 12 && (
+                <div className="pt-2 text-center">
+                  <button
+                    type="button"
+                    onClick={() => setShowAll100Events((prev) => !prev)}
+                    className="px-6 py-3 rounded-full bg-[#FAF8F5] hover:bg-[#F0EBE0] border border-[#E8E2D6] text-xs font-bold text-[#5A5A40] inline-flex items-center gap-2 transition-colors cursor-pointer shadow-2xs"
+                  >
+                    <span>
+                      {showAll100Events
+                        ? 'Collapse to Top 12 Events'
+                        : `Show All ${filteredUpcomingEventLocations.length} Nationwide State Events`}
+                    </span>
+                    <ChevronDown className={`w-4 h-4 transition-transform ${showAll100Events ? 'rotate-180' : ''}`} />
+                  </button>
+                </div>
+              )}
             </div>
 
-            {/* Matched City Spotlight Result Card (Directory Photo Style) */}
+            {/* Matched City Spotlight Result Card */}
             {matchedLocation && (
-              <div className="bg-white rounded-3xl p-6 sm:p-7 border-2 border-[#5A5A40]/30 shadow-md space-y-4">
-                <div className="flex flex-wrap items-center justify-between border-b border-[#E8E2D6] pb-3 gap-2">
-                  <div className="flex items-center gap-4 text-xs font-bold text-[#1f2937]">
-                    <span className="text-lg font-serif italic font-bold text-[#3D3A30]">
-                      Spotlight Market Result
-                    </span>
-                    <div className="hidden sm:flex items-center gap-3 text-[#7A7566] text-xs font-medium">
-                      <span className="hover:text-[#3D3A30]">▼ Name</span>
-                      <span className="text-amber-800 font-bold">▲ Date</span>
-                      <span className="hover:text-[#3D3A30]">▼ State</span>
-                      <span className="hover:text-[#3D3A30]">▼ City</span>
-                    </div>
-                  </div>
+              <div className="bg-white rounded-3xl p-5 sm:p-6 border border-[#5A5A40]/30 shadow-xs space-y-3">
+                <div className="flex flex-wrap items-center justify-between border-b border-[#E8E2D6] pb-2.5 gap-2">
+                  <span className="text-base font-serif italic font-bold text-[#3D3A30]">
+                    Spotlight Market: {matchedLocation.city}, {matchedLocation.state.code}
+                  </span>
                   <button 
                     type="button"
                     onClick={handleResetFilters}
@@ -1322,59 +1071,21 @@ END:VCALENDAR`;
                   </button>
                 </div>
 
-                <div className="space-y-3 pt-1">
-                  <div>
-                    <h3 className="text-xl sm:text-2xl font-bold font-serif text-[#111827]">
-                      2026 {matchedLocation.city} Fall Marketplace & First Fridays
-                    </h3>
-                    <span className="text-xs font-black uppercase tracking-wider text-[#5A5A40] font-mono mt-0.5 block">
-                      OCTOBER 02 – 04, 2026
-                    </span>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-1">
+                  <div className="space-y-1 text-xs sm:text-sm text-[#4b5563]">
+                    <p className="leading-relaxed">
+                      <strong>{matchedLocation.city}, {matchedLocation.state.name}</strong> hosts juried artisan maker booths, food truck rallies, and weekend community markets. Click <strong>Reserve Booth</strong> to select your vendor category and space tier.
+                    </p>
                   </div>
 
-                  <div className="space-y-2 text-xs sm:text-sm text-[#374151]">
-                    <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4">
-                      <span className="font-bold text-[#111827] sm:w-28 shrink-0">Location:</span>
-                      <span className="text-[#1f2937] font-semibold">{matchedLocation.city}, {matchedLocation.state.code} , Downtown Promenade</span>
-                    </div>
-
-                    <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4">
-                      <span className="font-bold text-[#111827] sm:w-28 shrink-0">Description:</span>
-                      <p className="text-[#4b5563] leading-relaxed">
-                        {matchedLocation.city} Fall Festival & Marketplace brings together maker vendors, food truck culinary artisans, non-profit community booths, and original handcrafted creators...{' '}
-                        <button 
-                          type="button"
-                          onClick={() => onOpenVendorModal('tent-10x10')} 
-                          className="text-[#5A5A40] font-bold underline cursor-pointer hover:text-[#3D3A30]"
-                        >
-                          View space specs »
-                        </button>
-                      </p>
-                    </div>
-
-                    <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4 pt-1">
-                      <span className="font-bold text-[#111827] sm:w-28 shrink-0">Types of Vendor:</span>
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                        {VENDOR_TYPES.map((type) => (
-                          <span key={type} className="inline-flex items-center gap-1 font-semibold text-[#111827]">
-                            <GreenCheckboxIcon checked={true} className="w-4 h-4" />
-                            <span>{type}</span>
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="pt-2 flex items-center justify-end">
-                    <button
-                      type="button"
-                      onClick={() => onOpenVendorModal('tent-10x10')}
-                      className="px-5 py-2.5 rounded-xl bg-[#5A5A40] hover:bg-[#464632] text-white text-xs font-bold flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
-                    >
-                      <Store className="w-4 h-4" />
-                      <span>Reserve Booth in {matchedLocation.city}</span>
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onOpenVendorModal('tent-10x10')}
+                    className="px-5 py-2.5 rounded-xl bg-[#5A5A40] hover:bg-[#464632] text-white text-xs font-bold flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer whitespace-nowrap shrink-0 self-start sm:self-center"
+                  >
+                    <Store className="w-4 h-4" />
+                    <span>Reserve Booth in {matchedLocation.city}</span>
+                  </button>
                 </div>
               </div>
             )}
@@ -1763,21 +1474,6 @@ END:VCALENDAR`;
                             </div>
                           </div>
 
-                          {/* Types of Vendor in every state card */}
-                          <div className="pt-2.5 border-t border-[#E8E2D6]/80">
-                            <div className="flex flex-wrap items-baseline gap-1.5 text-xs">
-                              <span className="font-bold text-[#1f2937] shrink-0">Types of Vendor:</span>
-                              <div className="inline-flex flex-wrap items-center gap-x-2.5 gap-y-0.5">
-                                {VENDOR_TYPES.map((type) => (
-                                  <span key={type} className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#111827]">
-                                    <GreenCheckboxIcon checked={true} className="w-3.5 h-3.5" />
-                                    <span>{type}</span>
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-
                           {/* Scheduled Multi-Date Event Locations in this State (Only Upcoming Shown) */}
                           {(() => {
                             const stateLocs = upcomingEventLocations.filter(l => l.stateCode === state.code);
@@ -1885,105 +1581,7 @@ END:VCALENDAR`;
                   })}
                 </div>
               </div>
-            ) : (
-              /* CLEAN LOCATION SEARCH & DISCOVERY HUB (Shown by default instead of listing 50 state cards) */
-              <div className="bg-gradient-to-br from-[#FAF8F5] to-[#F2EFE9] rounded-3xl p-6 sm:p-8 border border-[#E8E2D6] shadow-xs space-y-6">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-[#E8E2D6] pb-5">
-                  <div className="space-y-1">
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider text-[#5A5A40] bg-white border border-[#E8E2D6]">
-                      <MapPin className="w-3.5 h-3.5 text-[#5A5A40]" />
-                      Location Finder & Tour Markets
-                    </div>
-                    <h3 className="text-xl sm:text-2xl font-serif italic font-bold text-[#3D3A30]">
-                      Explore Events & Vendor Spaces by Location
-                    </h3>
-                    <p className="text-xs sm:text-sm text-[#6B6658]">
-                      Search any city or select your state to view scheduled dates, venue coordinates, and open vendor booth allocations.
-                    </p>
-                  </div>
-                  
-                  <button
-                    type="button"
-                    onClick={() => setShowAllStatesDirectory(true)}
-                    className="text-xs text-[#5A5A40] font-bold hover:underline shrink-0 flex items-center gap-1 cursor-pointer bg-white px-3 py-2 rounded-xl border border-[#E8E2D6] shadow-2xs hover:bg-[#FAF8F5]"
-                  >
-                    <Globe2 className="w-3.5 h-3.5" />
-                    <span>Browse all 50 states directory &raquo;</span>
-                  </button>
-                </div>
-
-                {/* Search Inputs Row */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {/* Free text search input */}
-                  <div className="relative">
-                    <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#7A7566]" />
-                    <input
-                      type="text"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Type a city (e.g., Houston, Columbia, Austin, Chicago)..."
-                      className="w-full pl-10 pr-4 py-3 rounded-2xl border border-[#E8E2D6] bg-white text-xs text-[#3D3A30] placeholder-[#7A7566] focus:outline-none focus:ring-2 focus:ring-[#5A5A40]"
-                    />
-                  </div>
-
-                  {/* State Dropdown */}
-                  <div className="relative">
-                    <select
-                      value={selectedStateCode}
-                      onChange={(e) => {
-                        setSelectedStateCode(e.target.value);
-                        if (e.target.value !== 'ALL') setExpandedStateCode(e.target.value);
-                      }}
-                      className="w-full px-4 py-3 rounded-2xl border border-[#E8E2D6] bg-white text-xs text-[#3D3A30] font-semibold appearance-none focus:outline-none focus:ring-2 focus:ring-[#5A5A40] cursor-pointer"
-                    >
-                      <option value="ALL">Select a State to View Locations (50 States)...</option>
-                      {stateOptions.map(st => (
-                        <option key={st.code} value={st.code}>{st.name} ({st.code}) &bull; {st.region} Region</option>
-                      ))}
-                    </select>
-                    <ChevronDown className="w-4 h-4 text-[#7A7566] absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none" />
-                  </div>
-                </div>
-
-                {/* Popular Metropolitan Markets */}
-                <div className="space-y-2 pt-1">
-                  <div className="text-[11px] font-bold uppercase tracking-wider text-[#7A7566] flex items-center justify-between">
-                    <span className="flex items-center gap-1">
-                      <Sparkles className="w-3 h-3 text-[#5A5A40]" />
-                      <span>Popular Metropolitan Markets (Click to View):</span>
-                    </span>
-                    <span className="text-[10px] text-[#7A7566] normal-case">
-                      Cities with &gt;200k pop &amp; active vendor communities
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {[
-                      { city: 'Columbia', state: 'SC', label: 'Columbia, SC (Host Market)' },
-                      { city: 'Houston', state: 'TX', label: 'Houston, TX' },
-                      { city: 'Los Angeles', state: 'CA', label: 'Los Angeles, CA' },
-                      { city: 'Chicago', state: 'IL', label: 'Chicago, IL' },
-                      { city: 'New York City', state: 'NY', label: 'New York, NY' },
-                      { city: 'Phoenix', state: 'AZ', label: 'Phoenix, AZ' },
-                      { city: 'Dallas', state: 'TX', label: 'Dallas, TX' },
-                      { city: 'Atlanta', state: 'GA', label: 'Atlanta, GA' },
-                      { city: 'Austin', state: 'TX', label: 'Austin, TX' },
-                      { city: 'Seattle', state: 'WA', label: 'Seattle, WA' },
-                      { city: 'Denver', state: 'CO', label: 'Denver, CO' },
-                      { city: 'Charlotte', state: 'NC', label: 'Charlotte, NC' }
-                    ].map(m => (
-                      <button
-                        key={m.label}
-                        type="button"
-                        onClick={() => handleCityClick(m.city, m.state)}
-                        className="px-3 py-1.5 rounded-xl bg-white hover:bg-[#5A5A40] text-[#5A5A40] hover:text-white border border-[#E8E2D6] text-xs font-semibold transition-all shadow-2xs cursor-pointer"
-                      >
-                        {m.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            ))}
+            ) : null)}
 
             {/* Bottom Callout Banner */}
             <div className="mt-10 p-8 rounded-[36px] bg-[#5A5A40] text-white flex flex-col md:flex-row items-center justify-between gap-6 shadow-sm">

@@ -51,6 +51,7 @@ const VENDOR_RESERVATION_FAQS = [
 
 export const VendorBookingPortal: React.FC<VendorBookingPortalProps> = ({ onOpenVendorModal }) => {
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
+  const [showVendorTypes, setShowVendorTypes] = useState<boolean>(false);
 
   const toggleFaq = (idx: number) => {
     setOpenFaqIndex(prev => prev === idx ? null : idx);
@@ -143,14 +144,28 @@ export const VendorBookingPortal: React.FC<VendorBookingPortalProps> = ({ onOpen
                   </div>
                 </div>
 
-                {/* What Kind Of Vendor Are You? * */}
+                {/* Collapsible What Kind Of Vendor Are You? * */}
                 <div className="pt-2">
-                  <div className="p-3.5 rounded-2xl bg-[#FDFBF7] border border-[#E8E2D6] space-y-2">
-                    <TypesOfVendorBadge
-                      label="What Kind Of Vendor Are You? *"
-                      useVendorKinds={true}
+                  <button
+                    type="button"
+                    onClick={() => setShowVendorTypes((prev) => !prev)}
+                    className="w-full p-3 rounded-2xl bg-[#FDFBF7] hover:bg-[#F0EBE0]/60 border border-[#E8E2D6] flex items-center justify-between text-xs font-bold text-[#3D3A30] transition-colors cursor-pointer"
+                  >
+                    <span>What Kind Of Vendor Are You? * (10 Accepted Categories)</span>
+                    <ChevronDown
+                      className={`w-4 h-4 text-[#5A5A40] transition-transform duration-200 ${
+                        showVendorTypes ? 'rotate-180' : ''
+                      }`}
                     />
-                  </div>
+                  </button>
+                  {showVendorTypes && (
+                    <div className="mt-2 p-3.5 rounded-2xl bg-[#FDFBF7] border border-[#E8E2D6]">
+                      <TypesOfVendorBadge
+                        label=""
+                        useVendorKinds={true}
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

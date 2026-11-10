@@ -221,11 +221,6 @@ export const FestivalOverview: React.FC<FestivalOverviewProps> = ({
                 </div>
               </div>
 
-              {/* Types of Vendor */}
-              <div className="pt-2">
-                <TypesOfVendorBadge label="Types of Vendor:" className="p-2.5 rounded-2xl bg-white border border-[#E8E2D6]" />
-              </div>
-
               {/* Action */}
               <div className="pt-2 flex flex-wrap items-center gap-3">
                 <button

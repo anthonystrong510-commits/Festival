@@ -221,10 +221,6 @@ END:VCALENDAR`;
                     <p className="text-xs sm:text-sm text-[#6B6658] leading-relaxed">
                       {evt.description}
                     </p>
-
-                    <div className="pt-2 border-t border-[#E8E2D6]/80">
-                      <TypesOfVendorBadge label="Types of Vendor:" size="sm" />
-                    </div>
                   </div>
                 ))}
               </div>

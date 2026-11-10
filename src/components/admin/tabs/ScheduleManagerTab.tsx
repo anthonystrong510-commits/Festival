@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Calendar, 
   Plus, 
@@ -14,27 +14,23 @@ import {
   CalendarDays,
   CheckCircle2,
   Layers,
-  ArrowRight
+  ArrowRight,
+  AlertCircle
 } from 'lucide-react';
 import { ScheduleEvent } from '../../../types';
-import { SCHEDULE_EVENTS } from '../../../data/festivalData';
-import { formatEventDate } from '../../../lib/locationMarketService';
+import { 
+  formatEventDate, 
+  subscribeScheduleEvents, 
+  saveScheduleEventsList, 
+  bulkDeleteScheduleEvents, 
+  isScheduleEventInPast, 
+  getTodayDateString 
+} from '../../../lib/locationMarketService';
 
 export function ScheduleManagerTab() {
-  const [events, setEvents] = useState<ScheduleEvent[]>(() => {
-    try {
-      const saved = localStorage.getItem('columbia_admin_schedule_events');
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return SCHEDULE_EVENTS.map(evt => ({
-      ...evt,
-      days: [evt.day as 'fri' | 'sat' | 'sun'],
-      dates: evt.day === 'fri' ? ['2026-10-02'] : evt.day === 'sat' ? ['2026-10-03'] : ['2026-10-04'],
-      locationDescription: 'Festival Pavilion Main Plaza & Stage'
-    }));
-  });
-
+  const [events, setEvents] = useState<ScheduleEvent[]>([]);
   const [activeFilterDay, setActiveFilterDay] = useState<string>('all');
+  const [timelineFilter, setTimelineFilter] = useState<'ALL' | 'UPCOMING' | 'PAST'>('ALL');
   const [selectedEventIds, setSelectedEventIds] = useState<string[]>([]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isBulkEditModalOpen, setIsBulkEditModalOpen] = useState(false);
@@ -49,13 +45,20 @@ export function ScheduleManagerTab() {
   const [formLocationDescription, setFormLocationDescription] = useState('Outdoor amphitheater stage with lawn seating and acoustic amplification.');
   const [formDescription, setFormDescription] = useState('');
   const [formDays, setFormDays] = useState<Array<'fri' | 'sat' | 'sun'>>(['fri']);
-  const [formDates, setFormDates] = useState<string[]>(['2026-10-02']);
+  const [formDates, setFormDates] = useState<string[]>(['2026-11-20']);
   const [formNewDate, setFormNewDate] = useState('');
 
   // Bulk Edit State
   const [bulkDays, setBulkDays] = useState<Array<'fri' | 'sat' | 'sun'>>(['fri', 'sat', 'sun']);
-  const [bulkDates, setBulkDates] = useState<string[]>(['2026-10-02', '2026-10-03', '2026-10-04']);
+  const [bulkDates, setBulkDates] = useState<string[]>(['2026-11-20', '2026-11-21', '2026-11-22']);
   const [bulkNewDate, setBulkNewDate] = useState('');
+
+  useEffect(() => {
+    const unsub = subscribeScheduleEvents((list) => {
+      setEvents(list);
+    });
+    return () => unsub();
+  }, []);
 
   const showToast = (msg: string) => {
     setFeedback(msg);
@@ -64,17 +67,27 @@ export function ScheduleManagerTab() {
 
   const persistEvents = (updated: ScheduleEvent[]) => {
     setEvents(updated);
-    try {
-      localStorage.setItem('columbia_admin_schedule_events', JSON.stringify(updated));
-    } catch {}
+    saveScheduleEventsList(updated);
   };
 
+  const todayStr = getTodayDateString();
+
+  const pastScheduleEvents = useMemo(() => {
+    return events.filter((evt) => isScheduleEventInPast(evt, todayStr));
+  }, [events, todayStr]);
+
   // Filtered Events
-  const filteredEvents = events.filter((evt) => {
-    if (activeFilterDay === 'all') return true;
-    if (evt.days && evt.days.includes(activeFilterDay as any)) return true;
-    return evt.day === activeFilterDay;
-  });
+  const filteredEvents = useMemo(() => {
+    return events.filter((evt) => {
+      const isPast = isScheduleEventInPast(evt, todayStr);
+      if (timelineFilter === 'UPCOMING' && isPast) return false;
+      if (timelineFilter === 'PAST' && !isPast) return false;
+
+      if (activeFilterDay === 'all') return true;
+      if (evt.days && evt.days.includes(activeFilterDay as any)) return true;
+      return evt.day === activeFilterDay;
+    });
+  }, [events, activeFilterDay, timelineFilter, todayStr]);
 
   // Select All / Deselect All
   const handleToggleSelectAll = () => {
@@ -91,6 +104,17 @@ export function ScheduleManagerTab() {
     );
   };
 
+  // Bulk Delete Schedule Events
+  const handleBulkDelete = async (idsToDelete: string[], message?: string) => {
+    if (idsToDelete.length === 0) return;
+    const deletedCount = await bulkDeleteScheduleEvents(idsToDelete);
+    setSelectedEventIds((prev) => prev.filter((id) => !idsToDelete.includes(id)));
+    showToast(message || `Bulk deleted ${deletedCount} stage schedule event${deletedCount === 1 ? '' : 's'}!`);
+    if (timelineFilter === 'PAST' && deletedCount >= pastScheduleEvents.length) {
+      setTimelineFilter('ALL');
+    }
+  };
+
   // Open Edit Event Modal
   const handleOpenEdit = (evt: ScheduleEvent) => {
     setEditingEvent(evt);
@@ -101,7 +125,7 @@ export function ScheduleManagerTab() {
     setFormLocationDescription(evt.locationDescription || 'Festival Pavilion Main Plaza');
     setFormDescription(evt.description);
     setFormDays(evt.days || [evt.day as any]);
-    setFormDates(evt.dates || ['2026-10-02']);
+    setFormDates(evt.dates || ['2026-11-20']);
     setIsAddModalOpen(true);
   };
 
@@ -116,7 +140,7 @@ export function ScheduleManagerTab() {
     setFormLocationDescription('Outdoor amphitheater stage with lawn seating.');
     setFormDescription('');
     setFormDays([day]);
-    setFormDates(day === 'fri' ? ['2026-10-02'] : day === 'sat' ? ['2026-10-03'] : ['2026-10-04']);
+    setFormDates(day === 'fri' ? ['2026-11-20'] : day === 'sat' ? ['2026-11-21'] : ['2026-11-22']);
     setIsAddModalOpen(true);
   };
 
@@ -138,7 +162,7 @@ export function ScheduleManagerTab() {
             description: formDescription.trim(),
             days: formDays.length > 0 ? formDays : ['fri'],
             day: formDays[0] || 'fri',
-            dates: formDates.length > 0 ? formDates : ['2026-10-02']
+            dates: formDates.length > 0 ? formDates : ['2026-11-20']
           };
         }
         return evt;
@@ -156,7 +180,7 @@ export function ScheduleManagerTab() {
         description: formDescription.trim(),
         days: formDays.length > 0 ? formDays : ['fri'],
         day: formDays[0] || 'fri',
-        dates: formDates.length > 0 ? formDates : ['2026-10-02']
+        dates: formDates.length > 0 ? formDates : ['2026-11-20']
       };
       persistEvents([newEvt, ...events]);
       showToast(`Added "${formTitle}" with ${formDates.length} scheduled dates!`);
@@ -165,12 +189,10 @@ export function ScheduleManagerTab() {
   };
 
   // Delete Event
-  const handleDeleteEvent = (id: string, title: string) => {
-    if (confirm(`Delete "${title}" from schedule?`)) {
-      persistEvents(events.filter(e => e.id !== id));
-      setSelectedEventIds(prev => prev.filter(i => i !== id));
-      showToast(`Deleted "${title}" from program.`);
-    }
+  const handleDeleteEvent = async (id: string, title: string) => {
+    await bulkDeleteScheduleEvents([id]);
+    setSelectedEventIds(prev => prev.filter(i => i !== id));
+    showToast(`Deleted "${title}" from program.`);
   };
 
   // Bulk Edit Days & Dates for Selected Events
@@ -208,19 +230,28 @@ export function ScheduleManagerTab() {
             <h2 className="font-bold text-[#3D3A30] text-lg">Festival Schedule, Multi-Dates & Events</h2>
           </div>
           <p className="text-xs text-[#7A7566] mt-1 max-w-xl">
-            Configure entertainment lineups, artisan workshops, and stage showcases. Events can span <strong>multiple dates</strong> with detailed location descriptions. Use <strong>Bulk Edit Days</strong> to reassign schedules across events.
+            Configure entertainment lineups, artisan workshops, and stage showcases. Events in the past are <strong>automatically hidden from public views</strong> and flagged below for bulk deletion or date updates.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {selectedEventIds.length > 0 && (
-            <button
-              onClick={() => setIsBulkEditModalOpen(true)}
-              className="px-3.5 py-2 rounded-2xl bg-[#3D3A30] hover:bg-[#2A2720] text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors"
-            >
-              <CalendarDays className="w-4 h-4 text-[#A8D5BA]" />
-              <span>Bulk Edit ({selectedEventIds.length}) Days</span>
-            </button>
+            <>
+              <button
+                onClick={() => setIsBulkEditModalOpen(true)}
+                className="px-3.5 py-2 rounded-2xl bg-[#3D3A30] hover:bg-[#2A2720] text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors"
+              >
+                <CalendarDays className="w-4 h-4 text-[#A8D5BA]" />
+                <span>Bulk Edit ({selectedEventIds.length}) Days</span>
+              </button>
+              <button
+                onClick={() => handleBulkDelete(selectedEventIds)}
+                className="px-3.5 py-2 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Bulk Delete ({selectedEventIds.length})</span>
+              </button>
+            </>
           )}
 
           <button
@@ -233,6 +264,56 @@ export function ScheduleManagerTab() {
         </div>
       </div>
 
+      {/* PAST SCHEDULE EVENTS NOTIFICATION BANNER */}
+      {pastScheduleEvents.length > 0 && (
+        <div className="bg-amber-50 border-2 border-amber-300/90 rounded-3xl p-5 shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="flex items-start gap-3.5">
+            <div className="w-10 h-10 rounded-2xl bg-amber-600 text-white flex items-center justify-center shrink-0">
+              <AlertCircle className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="px-2.5 py-0.5 rounded-full bg-amber-200 text-amber-950 text-[10px] font-black uppercase tracking-wider">
+                  Past Stage Events Alert • {pastScheduleEvents.length} Hidden From Public
+                </span>
+              </div>
+              <h3 className="text-sm font-bold text-amber-950 mt-1">
+                {pastScheduleEvents.length} scheduled stage event{pastScheduleEvents.length === 1 ? ' is' : 's are'} in the past and hidden from public schedule views.
+              </h3>
+              <p className="text-xs text-amber-900/80 mt-0.5">
+                Bulk delete these past program items or select them all to assign new upcoming festival dates.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedEventIds(pastScheduleEvents.map((e) => e.id));
+                setIsBulkEditModalOpen(true);
+              }}
+              className="px-3.5 py-2 rounded-2xl bg-white hover:bg-amber-100 text-amber-950 border border-amber-300 text-xs font-bold transition-colors"
+            >
+              Reschedule Past Events ({pastScheduleEvents.length})
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                handleBulkDelete(
+                  pastScheduleEvents.map((e) => e.id),
+                  `Bulk deleted all ${pastScheduleEvents.length} past schedule events!`
+                )
+              }
+              className="px-4 py-2 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span>Bulk Delete All Past ({pastScheduleEvents.length})</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Feedback Toast */}
       {feedback && (
         <div className="p-3.5 rounded-2xl bg-[#5A5A40] text-white text-xs font-semibold flex items-center gap-2 shadow-md">
@@ -242,48 +323,88 @@ export function ScheduleManagerTab() {
       )}
 
       {/* Filter Tabs & Bulk Select Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-[#E8E2D6]">
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
-          {[
-            { id: 'all', label: 'All Program Events' },
-            { id: 'fri', label: 'Friday (Oct 2)' },
-            { id: 'sat', label: 'Saturday (Oct 3)' },
-            { id: 'sun', label: 'Sunday (Oct 4)' },
-          ].map((tab) => {
-            const count = tab.id === 'all' 
-              ? events.length 
-              : events.filter(e => (e.days?.includes(tab.id as any) || e.day === tab.id)).length;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveFilterDay(tab.id)}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
-                  activeFilterDay === tab.id
-                    ? 'bg-[#5A5A40] text-white shadow-xs'
-                    : 'bg-transparent text-[#6B6658] hover:bg-[#F0EBE0]'
-                }`}
-              >
-                {tab.label} ({count})
-              </button>
-            );
-          })}
+      <div className="flex flex-col gap-3 bg-white p-3.5 rounded-2xl border border-[#E8E2D6]">
+        <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-[#E8E2D6]/70">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <button
+              type="button"
+              onClick={() => setTimelineFilter('ALL')}
+              className={`px-3 py-1 rounded-xl text-xs font-bold transition-all ${
+                timelineFilter === 'ALL'
+                  ? 'bg-[#5A5A40] text-white'
+                  : 'bg-[#FDFBF7] text-[#6B6658] border border-[#E8E2D6]'
+              }`}
+            >
+              All ({events.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setTimelineFilter('UPCOMING')}
+              className={`px-3 py-1 rounded-xl text-xs font-bold transition-all ${
+                timelineFilter === 'UPCOMING'
+                  ? 'bg-emerald-700 text-white'
+                  : 'bg-[#FDFBF7] text-emerald-800 border border-emerald-200'
+              }`}
+            >
+              Upcoming ({events.length - pastScheduleEvents.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setTimelineFilter('PAST')}
+              className={`px-3 py-1 rounded-xl text-xs font-bold transition-all ${
+                timelineFilter === 'PAST'
+                  ? 'bg-amber-700 text-white'
+                  : 'bg-[#FDFBF7] text-amber-900 border border-amber-200'
+              }`}
+            >
+              Past / Hidden ({pastScheduleEvents.length})
+            </button>
+          </div>
         </div>
 
-        <div className="flex items-center gap-3 text-xs text-[#7A7566] px-2">
-          <button
-            onClick={handleToggleSelectAll}
-            className="flex items-center gap-1.5 font-bold text-[#5A5A40] hover:text-[#3D3A30]"
-          >
-            {selectedEventIds.length === filteredEvents.length && filteredEvents.length > 0 ? (
-              <CheckSquare className="w-4 h-4 text-[#5A5A40]" />
-            ) : (
-              <Square className="w-4 h-4 text-[#8A8576]" />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+            {[
+              { id: 'all', label: 'All Program Events' },
+              { id: 'fri', label: 'Friday' },
+              { id: 'sat', label: 'Saturday' },
+              { id: 'sun', label: 'Sunday' },
+            ].map((tab) => {
+              const count = tab.id === 'all' 
+                ? events.length 
+                : events.filter(e => (e.days?.includes(tab.id as any) || e.day === tab.id)).length;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveFilterDay(tab.id)}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                    activeFilterDay === tab.id
+                      ? 'bg-[#5A5A40] text-white shadow-xs'
+                      : 'bg-transparent text-[#6B6658] hover:bg-[#F0EBE0]'
+                  }`}
+                >
+                  {tab.label} ({count})
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="flex items-center gap-3 text-xs text-[#7A7566] px-2">
+            <button
+              onClick={handleToggleSelectAll}
+              className="flex items-center gap-1.5 font-bold text-[#5A5A40] hover:text-[#3D3A30]"
+            >
+              {selectedEventIds.length === filteredEvents.length && filteredEvents.length > 0 ? (
+                <CheckSquare className="w-4 h-4 text-[#5A5A40]" />
+              ) : (
+                <Square className="w-4 h-4 text-[#8A8576]" />
+              )}
+              <span>Select All Shown</span>
+            </button>
+            {selectedEventIds.length > 0 && (
+              <span className="font-bold text-[#5A5A40]">{selectedEventIds.length} selected</span>
             )}
-            <span>Select All for Bulk</span>
-          </button>
-          {selectedEventIds.length > 0 && (
-            <span className="font-bold text-[#5A5A40]">{selectedEventIds.length} selected</span>
-          )}
+          </div>
         </div>
       </div>
 
@@ -291,7 +412,7 @@ export function ScheduleManagerTab() {
       <div className="space-y-3">
         {filteredEvents.length === 0 ? (
           <div className="bg-white p-12 rounded-3xl border border-[#E8E2D6] text-center text-xs text-[#8A8576] space-y-2">
-            <p>No events listed for this day.</p>
+            <p>No events listed for this filter.</p>
             <button
               onClick={handleOpenCreate}
               className="px-4 py-1.5 rounded-xl bg-[#5A5A40] text-white font-bold"
@@ -302,11 +423,16 @@ export function ScheduleManagerTab() {
         ) : (
           filteredEvents.map((evt) => {
             const isSelected = selectedEventIds.includes(evt.id);
+            const isPast = isScheduleEventInPast(evt, todayStr);
             return (
               <div
                 key={evt.id}
                 className={`bg-white rounded-3xl border p-5 transition-all space-y-3 shadow-xs ${
-                  isSelected ? 'border-[#5A5A40] ring-2 ring-[#5A5A40]/20 bg-[#FDFBF7]' : 'border-[#E8E2D6] hover:border-[#D0C8B8]'
+                  isSelected
+                    ? 'border-[#5A5A40] ring-2 ring-[#5A5A40]/20 bg-[#FDFBF7]'
+                    : isPast
+                    ? 'border-amber-300/90 bg-amber-50/20'
+                    : 'border-[#E8E2D6] hover:border-[#D0C8B8]'
                 }`}
               >
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
@@ -333,6 +459,15 @@ export function ScheduleManagerTab() {
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#EAE4D6] text-[#5A5A40]">
                           {evt.category || 'Performance'}
                         </span>
+                        {isPast ? (
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-900 border border-amber-300">
+                            Past Event • Hidden From Public
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                            Upcoming • Public
+                          </span>
+                        )}
                       </div>
 
                       {/* Location & Location Description */}
@@ -381,11 +516,21 @@ export function ScheduleManagerTab() {
                       <span>Event Dates:</span>
                     </span>
                     {evt.dates && evt.dates.length > 0 ? (
-                      evt.dates.map((d) => (
-                        <span key={d} className="px-2 py-0.5 rounded-lg bg-[#F7F5EE] border border-[#E8E2D6] text-[11px] font-mono font-semibold text-[#3D3A30]">
-                          {formatEventDate(d)}
-                        </span>
-                      ))
+                      evt.dates.map((d) => {
+                        const isExpired = d < todayStr;
+                        return (
+                          <span
+                            key={d}
+                            className={`px-2 py-0.5 rounded-lg border text-[11px] font-mono font-semibold ${
+                              isExpired
+                                ? 'bg-amber-50 border-amber-200 text-amber-800 line-through opacity-75'
+                                : 'bg-[#F7F5EE] border-[#E8E2D6] text-[#3D3A30]'
+                            }`}
+                          >
+                            {formatEventDate(d)}
+                          </span>
+                        );
+                      })
                     ) : (
                       <span className="text-[11px] text-[#8A8576]">Single Day</span>
                     )}

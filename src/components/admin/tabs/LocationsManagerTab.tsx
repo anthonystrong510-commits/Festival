@@ -33,6 +33,7 @@ import {
   subscribeEventLocations, 
   saveEventLocation, 
   deleteEventLocation, 
+  bulkDeleteEventLocations,
   bulkUpdateLocationsDays,
   subscribeCustomCities,
   saveCustomCity,
@@ -41,7 +42,9 @@ import {
   generateDateRangeList,
   formatEventDateRange,
   getCitiesForState,
-  importEventsFromMiamiFarmersMarket
+  importEventsFromMiamiFarmersMarket,
+  isEventLocationInPast,
+  getTodayDateString
 } from '../../../lib/locationMarketService';
 import { TypesOfVendorBadge } from '../../TypesOfVendorBadge';
 
@@ -51,6 +54,7 @@ export function LocationsManagerTab() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStateCode, setSelectedStateCode] = useState<string>('ALL');
   const [selectedDayFilter, setSelectedDayFilter] = useState<string>('ALL');
+  const [timelineFilter, setTimelineFilter] = useState<'ALL' | 'UPCOMING' | 'PAST'>('ALL');
   
   // Selection for bulk operations
   const [selectedLocationIds, setSelectedLocationIds] = useState<string[]>([]);
@@ -62,6 +66,7 @@ export function LocationsManagerTab() {
   const [isAddCityModalOpen, setIsAddCityModalOpen] = useState(false);
   const [feedbackNotice, setFeedbackNotice] = useState<string | null>(null);
   const [isImportingMiami, setIsImportingMiami] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
   // New/Editing Location Form State
   const [formTitle, setFormTitle] = useState('');
@@ -78,10 +83,10 @@ export function LocationsManagerTab() {
 
   // Date Selection State (Date Range & Non-stop support)
   const [formDateMode, setFormDateMode] = useState<'range' | 'specific'>('range');
-  const [formStartDate, setFormStartDate] = useState('2026-10-02');
-  const [formEndDate, setFormEndDate] = useState('2026-10-11');
+  const [formStartDate, setFormStartDate] = useState('2026-11-15');
+  const [formEndDate, setFormEndDate] = useState('2026-11-22');
   const [formIsNonStop, setFormIsNonStop] = useState(true);
-  const [formDates, setFormDates] = useState<string[]>(['2026-10-02', '2026-10-03', '2026-10-04']);
+  const [formDates, setFormDates] = useState<string[]>(['2026-11-20', '2026-11-21', '2026-11-22']);
   const [formNewDateInput, setFormNewDateInput] = useState('');
   const [formDays, setFormDays] = useState<Array<'fri' | 'sat' | 'sun'>>(['fri', 'sat', 'sun']);
   const [formHours, setFormHours] = useState('10:00 AM - 6:00 PM');
@@ -92,10 +97,10 @@ export function LocationsManagerTab() {
 
   // Bulk Edit Form State
   const [bulkDays, setBulkDays] = useState<Array<'fri' | 'sat' | 'sun'>>(['fri', 'sat', 'sun']);
-  const [bulkDates, setBulkDates] = useState<string[]>(['2026-10-02', '2026-10-03', '2026-10-04']);
+  const [bulkDates, setBulkDates] = useState<string[]>(['2026-11-20', '2026-11-21', '2026-11-22']);
   const [bulkNewDateInput, setBulkNewDateInput] = useState('');
-  const [bulkStartDate, setBulkStartDate] = useState('2026-10-02');
-  const [bulkEndDate, setBulkEndDate] = useState('2026-10-11');
+  const [bulkStartDate, setBulkStartDate] = useState('2026-11-20');
+  const [bulkEndDate, setBulkEndDate] = useState('2026-11-22');
   const [bulkIsNonStop, setBulkIsNonStop] = useState(true);
   const [bulkActionType, setBulkActionType] = useState<'set_range' | 'replace_days' | 'replace_dates' | 'append_dates' | 'set_both'>('set_range');
   const [isProcessingBulk, setIsProcessingBulk] = useState(false);
@@ -125,9 +130,24 @@ export function LocationsManagerTab() {
     setTimeout(() => setFeedbackNotice(null), 4000);
   };
 
+  const todayStr = getTodayDateString();
+
+  // Past locations where all scheduled dates have passed
+  const pastLocations = useMemo(() => {
+    return locations.filter((loc) => isEventLocationInPast(loc, todayStr));
+  }, [locations, todayStr]);
+
+  const upcomingLocationsCount = useMemo(() => {
+    return locations.length - pastLocations.length;
+  }, [locations.length, pastLocations.length]);
+
   // Filtered locations
   const filteredLocations = useMemo(() => {
     return locations.filter((loc) => {
+      const isPast = isEventLocationInPast(loc, todayStr);
+      if (timelineFilter === 'UPCOMING' && isPast) return false;
+      if (timelineFilter === 'PAST' && !isPast) return false;
+
       const matchState = selectedStateCode === 'ALL' || loc.stateCode === selectedStateCode;
       const matchDay = selectedDayFilter === 'ALL' || loc.days.includes(selectedDayFilter as any);
       const query = searchQuery.trim().toLowerCase();
@@ -141,7 +161,7 @@ export function LocationsManagerTab() {
         loc.description.toLowerCase().includes(query);
       return matchState && matchDay && matchQuery;
     });
-  }, [locations, selectedStateCode, selectedDayFilter, searchQuery]);
+  }, [locations, selectedStateCode, selectedDayFilter, searchQuery, timelineFilter, todayStr]);
 
   // Bulk Selection Toggles
   const handleToggleSelectAll = () => {
@@ -156,6 +176,22 @@ export function LocationsManagerTab() {
     setSelectedLocationIds(prev => 
       prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
     );
+  };
+
+  // Bulk Delete Handler
+  const handleBulkDelete = async (idsToDelete: string[], label?: string) => {
+    if (idsToDelete.length === 0) return;
+    setIsBulkDeleting(true);
+    try {
+      const deletedCount = await bulkDeleteEventLocations(idsToDelete);
+      setSelectedLocationIds((prev) => prev.filter((id) => !idsToDelete.includes(id)));
+      showToast(label || `Bulk deleted ${deletedCount} event location${deletedCount === 1 ? '' : 's'}!`);
+      if (timelineFilter === 'PAST' && deletedCount >= pastLocations.length) {
+        setTimelineFilter('ALL');
+      }
+    } finally {
+      setIsBulkDeleting(false);
+    }
   };
 
   // Handle Form State Change (cascades cities)
@@ -214,7 +250,7 @@ export function LocationsManagerTab() {
     setFormDescription(loc.description);
     
     // Date & Range setup
-    const initialDates = loc.dates && loc.dates.length > 0 ? loc.dates : ['2026-10-02'];
+    const initialDates = loc.dates && loc.dates.length > 0 ? loc.dates : ['2026-11-20'];
     setFormDates(initialDates);
     const startD = loc.startDate || initialDates[0];
     const endD = loc.endDate || initialDates[initialDates.length - 1];
@@ -251,11 +287,11 @@ export function LocationsManagerTab() {
     setFormImageUrl('');
     setFormDescription(`${defaultCity} Fall First Fridays & Weekend Marketplace. Featuring juried artisan maker booths, food trucks, craft creators, and regional acoustic music.`);
     
-    setFormStartDate('2026-10-02');
-    setFormEndDate('2026-10-11');
+    setFormStartDate('2026-11-20');
+    setFormEndDate('2026-11-22');
     setFormIsNonStop(true);
     setFormDateMode('range');
-    setFormDates(generateDateRangeList('2026-10-02', '2026-10-11'));
+    setFormDates(generateDateRangeList('2026-11-20', '2026-11-22'));
     setFormDays(['fri', 'sat', 'sun']);
     setFormHours('10:00 AM - 6:00 PM');
     setFormVendorTypes(['Music', 'Art', 'Craft', 'Food', 'Commercial']);
@@ -270,7 +306,7 @@ export function LocationsManagerTab() {
     e.preventDefault();
     const finalCity = isCustomCityInput ? customCityInputText.trim() : formCityName.trim();
     if (!finalCity) {
-      alert('City name is required.');
+      showToast('City name is required.');
       return;
     }
 
@@ -279,7 +315,7 @@ export function LocationsManagerTab() {
 
     const computedDates = formDateMode === 'range' && formStartDate && formEndDate
       ? generateDateRangeList(formStartDate, formEndDate)
-      : (formDates.length > 0 ? formDates : ['2026-10-02']);
+      : (formDates.length > 0 ? formDates : ['2026-11-20']);
 
     const payload: Partial<EventLocationMarket> & { cityName: string; stateCode: string } = {
       id: editingLocation?.id,
@@ -317,11 +353,9 @@ export function LocationsManagerTab() {
 
   // Delete Location
   const handleDeleteLocation = async (id: string, name: string) => {
-    if (confirm(`Are you sure you want to delete the location "${name}"?`)) {
-      await deleteEventLocation(id);
-      setSelectedLocationIds(prev => prev.filter(i => i !== id));
-      showToast(`Location "${name}" deleted.`);
-    }
+    await deleteEventLocation(id);
+    setSelectedLocationIds(prev => prev.filter(i => i !== id));
+    showToast(`Location "${name}" deleted.`);
   };
 
   // Execute Bulk Edit Days & Dates
@@ -351,7 +385,7 @@ export function LocationsManagerTab() {
     } catch (err) {
       console.error(err);
       setIsProcessingBulk(false);
-      alert('Failed to update in bulk. Please check console.');
+      showToast('Failed to update in bulk. Please try again.');
     }
   };
 
@@ -418,7 +452,7 @@ export function LocationsManagerTab() {
             <h1 className="text-xl font-bold text-[#3D3A30]">States, Cities & Event Locations</h1>
           </div>
           <p className="text-xs text-[#7A7566] mt-1 max-w-2xl">
-            Manage festival locations across all 50 states and cities. Set venue descriptions, add multiple dates per event, and use the <strong>Bulk Edit Days</strong> tool to update schedules across multiple cities simultaneously.
+            Manage festival locations across all 50 states and cities. Events whose dates are in the past are <strong>automatically hidden from public views</strong> and flagged below for bulk deletion.
           </p>
         </div>
 
@@ -465,6 +499,75 @@ export function LocationsManagerTab() {
         </div>
       </div>
 
+      {/* PAST EVENTS NOTIFICATION & BULK DELETE PROMPT BANNER */}
+      {pastLocations.length > 0 && (
+        <div className="bg-amber-50 border-2 border-amber-300/90 rounded-3xl p-5 shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="flex items-start gap-3.5">
+            <div className="w-11 h-11 rounded-2xl bg-amber-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+              <AlertCircle className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="px-2.5 py-0.5 rounded-full bg-amber-200 text-amber-950 text-[10px] font-black uppercase tracking-wider">
+                  Past Events Alert • {pastLocations.length} Hidden From Public
+                </span>
+                <span className="text-xs font-mono font-bold text-amber-800">
+                  Today: {formatEventDate(todayStr)}
+                </span>
+              </div>
+              <h3 className="text-sm font-bold text-amber-950 mt-1">
+                {pastLocations.length} market location{pastLocations.length === 1 ? ' has' : 's have'} ended and been automatically hidden from the public directory.
+              </h3>
+              <p className="text-xs text-amber-900/80 mt-0.5">
+                Would you like to bulk delete these past events now, or select them to reschedule their dates for an upcoming market cycle?
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                setTimelineFilter(timelineFilter === 'PAST' ? 'ALL' : 'PAST');
+              }}
+              className={`px-3.5 py-2.5 rounded-2xl text-xs font-bold border transition-colors ${
+                timelineFilter === 'PAST'
+                  ? 'bg-amber-900 text-white border-amber-900'
+                  : 'bg-white hover:bg-amber-100/70 text-amber-950 border-amber-300'
+              }`}
+            >
+              {timelineFilter === 'PAST' ? 'Show All Locations' : `Filter Past Events (${pastLocations.length})`}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedLocationIds(pastLocations.map((l) => l.id));
+                showToast(`Selected ${pastLocations.length} past event locations for bulk action.`);
+              }}
+              className="px-3.5 py-2.5 rounded-2xl bg-white hover:bg-amber-100/70 text-amber-950 border border-amber-300 text-xs font-bold transition-colors"
+            >
+              Select All Past ({pastLocations.length})
+            </button>
+
+            <button
+              type="button"
+              disabled={isBulkDeleting}
+              onClick={() =>
+                handleBulkDelete(
+                  pastLocations.map((l) => l.id),
+                  `Bulk deleted all ${pastLocations.length} past event locations!`
+                )
+              }
+              className="px-4 py-2.5 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-colors disabled:opacity-60 cursor-pointer"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span>{isBulkDeleting ? 'Deleting...' : `Bulk Delete Past Events (${pastLocations.length})`}</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Feedback Toast Notice */}
       {feedbackNotice && (
         <div className="p-3.5 rounded-2xl bg-[#5A5A40] text-white text-xs font-semibold flex items-center gap-2 shadow-md animate-fade-in">
@@ -475,6 +578,47 @@ export function LocationsManagerTab() {
 
       {/* Filter and Search Bar */}
       <div className="bg-white p-4 rounded-3xl border border-[#E8E2D6] shadow-xs space-y-3">
+        {/* Timeline Status Tabs */}
+        <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-[#E8E2D6]/80">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <button
+              type="button"
+              onClick={() => setTimelineFilter('ALL')}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                timelineFilter === 'ALL'
+                  ? 'bg-[#5A5A40] text-white shadow-xs'
+                  : 'bg-[#FDFBF7] text-[#6B6658] hover:bg-[#F0EBE0] border border-[#E8E2D6]'
+              }`}
+            >
+              All Locations ({locations.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setTimelineFilter('UPCOMING')}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                timelineFilter === 'UPCOMING'
+                  ? 'bg-emerald-700 text-white shadow-xs'
+                  : 'bg-[#FDFBF7] text-emerald-800 hover:bg-emerald-50 border border-emerald-200'
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full bg-emerald-400" />
+              <span>Upcoming / Live on Public Site ({upcomingLocationsCount})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setTimelineFilter('PAST')}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                timelineFilter === 'PAST'
+                  ? 'bg-amber-700 text-white shadow-xs'
+                  : 'bg-[#FDFBF7] text-amber-900 hover:bg-amber-50 border border-amber-200'
+              }`}
+            >
+              <AlertCircle className="w-3.5 h-3.5" />
+              <span>Past / Hidden from Public ({pastLocations.length})</span>
+            </button>
+          </div>
+        </div>
+
         <div className="flex flex-col sm:flex-row items-center gap-3">
           
           {/* Search Input */}
@@ -537,10 +681,10 @@ export function LocationsManagerTab() {
               <span>
                 {selectedLocationIds.length === filteredLocations.length && filteredLocations.length > 0
                   ? 'Deselect All'
-                  : 'Select All Locations'}
+                  : 'Select All Shown Locations'}
               </span>
             </button>
-            <span>Showing {filteredLocations.length} locations across states</span>
+            <span>Showing {filteredLocations.length} locations</span>
           </div>
 
           {selectedLocationIds.length > 0 && (
@@ -551,7 +695,7 @@ export function LocationsManagerTab() {
         </div>
       </div>
 
-      {/* FLOATING BULK EDIT BAR (Visible when 1+ locations selected) */}
+      {/* FLOATING BULK EDIT & BULK DELETE BAR (Visible when 1+ locations selected) */}
       {selectedLocationIds.length > 0 && (
         <div className="sticky top-20 z-30 bg-[#3D3A30] text-white p-4 rounded-3xl shadow-xl flex flex-col sm:flex-row items-center justify-between gap-3 animate-fade-in border border-[#5A5A40]">
           <div className="flex items-center gap-3">
@@ -559,20 +703,34 @@ export function LocationsManagerTab() {
               {selectedLocationIds.length}
             </span>
             <div>
-              <h4 className="font-bold text-sm">Bulk Editing {selectedLocationIds.length} Locations</h4>
+              <h4 className="font-bold text-sm">Bulk Action on {selectedLocationIds.length} Locations</h4>
               <p className="text-[11px] text-[#D8D2C2]">
-                Apply days of week, multiple dates, or active status simultaneously.
+                Bulk delete past/selected locations or reschedule their days and dates simultaneously.
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={() => setIsBulkEditModalOpen(true)}
               className="px-4 py-2 rounded-2xl bg-[#5A5A40] hover:bg-[#6E6E50] text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all"
             >
               <CalendarDays className="w-4 h-4 text-[#A8D5BA]" />
               <span>Bulk Edit Days & Dates</span>
+            </button>
+
+            <button
+              disabled={isBulkDeleting}
+              onClick={() =>
+                handleBulkDelete(
+                  selectedLocationIds,
+                  `Bulk deleted ${selectedLocationIds.length} selected location${selectedLocationIds.length === 1 ? '' : 's'}!`
+                )
+              }
+              className="px-4 py-2 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all disabled:opacity-60 cursor-pointer"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span>{isBulkDeleting ? 'Deleting...' : `Bulk Delete (${selectedLocationIds.length})`}</span>
             </button>
 
             <button
@@ -592,7 +750,7 @@ export function LocationsManagerTab() {
             <MapPin className="w-10 h-10 text-[#8A8576] mx-auto opacity-50" />
             <h3 className="font-bold text-base text-[#3D3A30]">No Locations Match Current Filter</h3>
             <p className="text-xs text-[#7A7566] max-w-md mx-auto">
-              Try changing the state filter, searching for another city, or click "Add Location Event" to create a new market event.
+              Try changing the state or timeline filter, searching for another city, or click "Add Location Event" to create a new market event.
             </p>
             <button
               onClick={handleOpenCreate}
@@ -605,11 +763,16 @@ export function LocationsManagerTab() {
         ) : (
           filteredLocations.map((loc) => {
             const isSelected = selectedLocationIds.includes(loc.id);
+            const isPast = isEventLocationInPast(loc, todayStr);
             return (
               <div
                 key={loc.id}
                 className={`bg-white rounded-3xl border transition-all p-5 sm:p-6 space-y-4 shadow-xs ${
-                  isSelected ? 'border-[#5A5A40] ring-2 ring-[#5A5A40]/20 bg-[#FDFBF7]' : 'border-[#E8E2D6] hover:border-[#D0C8B8]'
+                  isSelected
+                    ? 'border-[#5A5A40] ring-2 ring-[#5A5A40]/20 bg-[#FDFBF7]'
+                    : isPast
+                    ? 'border-amber-300/90 bg-amber-50/20'
+                    : 'border-[#E8E2D6] hover:border-[#D0C8B8]'
                 }`}
               >
                 {/* Header row: Checkbox, Title, State & City, Actions */}
@@ -633,6 +796,15 @@ export function LocationsManagerTab() {
                           {loc.stateCode}
                         </span>
                         <h3 className="font-bold text-base text-[#3D3A30]">{loc.title}</h3>
+                        {isPast ? (
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-900 border border-amber-300">
+                            Past Event • Hidden From Public
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                            Upcoming • Public
+                          </span>
+                        )}
                         {!loc.active && (
                           <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-100 text-rose-700">
                             Inactive
@@ -737,14 +909,22 @@ export function LocationsManagerTab() {
 
                     <div className="flex flex-wrap gap-1.5 pt-1">
                       {loc.dates && loc.dates.length > 0 ? (
-                        loc.dates.map((d) => (
-                          <span
-                            key={d}
-                            className="px-2.5 py-1 rounded-xl bg-white border border-[#D8D2C2] text-xs font-semibold text-[#3D3A30] shadow-2xs font-mono"
-                          >
-                            {formatEventDate(d)}
-                          </span>
-                        ))
+                        loc.dates.map((d) => {
+                          const isDateExpired = d < todayStr;
+                          return (
+                            <span
+                              key={d}
+                              className={`px-2.5 py-1 rounded-xl border text-xs font-semibold shadow-2xs font-mono ${
+                                isDateExpired
+                                  ? 'bg-amber-50 border-amber-200 text-amber-800 line-through opacity-75'
+                                  : 'bg-white border-[#D8D2C2] text-[#3D3A30]'
+                              }`}
+                              title={isDateExpired ? 'Past date (hidden on public directory)' : 'Upcoming date'}
+                            >
+                              {formatEventDate(d)}
+                            </span>
+                          );
+                        })
                       ) : (
                         <span className="text-xs text-[#8A8576] italic">No dates set</span>
                       )}

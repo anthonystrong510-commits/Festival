@@ -30,9 +30,17 @@ import {
 } from 'lucide-react';
 import { USA_STATES_CITIES_DATA, ALL_US_CITIES_OVER_200K, UsaStateMarket, CityPopulationInfo } from '../data/usaStatesCitiesData';
 import { SCHEDULE_EVENTS, FESTIVAL_DAYS, EVENT_CONFIG, FESTIVAL_LOCATION } from '../data/festivalData';
-import { BoothId, EventLocationMarket, VENDOR_KIND_OPTIONS } from '../types';
+import { BoothId, EventLocationMarket, ScheduleEvent, VENDOR_KIND_OPTIONS } from '../types';
 import { TypesOfVendorBadge, VENDOR_TYPES, GreenCheckboxIcon } from './TypesOfVendorBadge';
-import { subscribeEventLocations, formatEventDate, importEventsFromMiamiFarmersMarket } from '../lib/locationMarketService';
+import {
+  subscribeEventLocations,
+  subscribeScheduleEvents,
+  formatEventDate,
+  importEventsFromMiamiFarmersMarket,
+  isEventLocationInPast,
+  isScheduleEventInPast,
+  getUpcomingEventDates
+} from '../lib/locationMarketService';
 
 interface NationwideVendorDirectoryProps {
   onOpenVendorModal: (boothId?: BoothId, days?: Array<'fri' | 'sat' | 'sun'>) => void;
@@ -59,11 +67,21 @@ export const NationwideVendorDirectory: React.FC<NationwideVendorDirectoryProps>
   const [expandedCitiesStateCode, setExpandedCitiesStateCode] = useState<Record<string, boolean>>({});
   const [selectedVendorTypes, setSelectedVendorTypes] = useState<string[]>([...VENDOR_TYPES]);
   const [eventLocations, setEventLocations] = useState<EventLocationMarket[]>([]);
+  const [scheduleEvents, setScheduleEvents] = useState<ScheduleEvent[]>(SCHEDULE_EVENTS);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState<boolean>(false);
   const [showAllStatesDirectory, setShowAllStatesDirectory] = useState<boolean>(false);
   const [isImportingMiami, setIsImportingMiami] = useState<boolean>(false);
   const [miamiSyncNotice, setMiamiSyncNotice] = useState<string | null>(null);
   const [activeImageByLocId, setActiveImageByLocId] = useState<Record<string, string>>({});
+
+  // Only show active, non-past event locations to public visitors
+  const upcomingEventLocations = useMemo(() => {
+    return eventLocations.filter((loc) => loc.active && !isEventLocationInPast(loc));
+  }, [eventLocations]);
+
+  const hiddenPastLocationsCount = useMemo(() => {
+    return eventLocations.filter((loc) => isEventLocationInPast(loc)).length;
+  }, [eventLocations]);
 
   const handleSyncMiamiEvents = async () => {
     setIsImportingMiami(true);
@@ -95,10 +113,16 @@ export const NationwideVendorDirectory: React.FC<NationwideVendorDirectoryProps>
   }, [searchQuery, selectedStateCode, selectedCityFilter, selectedRegion, onlyOver200kFilter, onlyActiveLocationsFilter]);
 
   useEffect(() => {
-    const unsub = subscribeEventLocations((locs) => {
+    const unsubLocs = subscribeEventLocations((locs) => {
       setEventLocations(locs);
     });
-    return () => unsub();
+    const unsubSch = subscribeScheduleEvents((evts) => {
+      setScheduleEvents(evts);
+    });
+    return () => {
+      unsubLocs();
+      unsubSch();
+    };
   }, []);
 
   const handleToggleVendorType = (type: string) => {
@@ -154,30 +178,32 @@ export const NationwideVendorDirectory: React.FC<NationwideVendorDirectoryProps>
     return ALL_US_CITIES_OVER_200K.length;
   }, []);
 
-  // All Scheduled Events enriched with categories
+  // All Scheduled Events enriched with categories (excluding past events)
   const allEnrichedEvents = useMemo(() => {
-    return SCHEDULE_EVENTS.map(event => {
-      const isFood = event.type === 'food' || 
-                     event.title.toLowerCase().includes('food') || 
-                     event.description.toLowerCase().includes('brunch') ||
-                     event.description.toLowerCase().includes('treats');
+    return scheduleEvents
+      .filter((event) => !isScheduleEventInPast(event))
+      .map(event => {
+        const isFood = event.type === 'food' || 
+                       event.title.toLowerCase().includes('food') || 
+                       event.description.toLowerCase().includes('brunch') ||
+                       event.description.toLowerCase().includes('treats');
 
-      const isMusic = event.type === 'entertainment' && !event.title.toLowerCase().includes('awards');
+        const isMusic = event.type === 'entertainment' && !event.title.toLowerCase().includes('awards');
 
-      const isArtisan = event.type === 'market' || event.type === 'workshop';
+        const isArtisan = event.type === 'market' || event.type === 'workshop';
 
-      const isFamily = event.type === 'kids' || event.title.toLowerCase().includes('family') || event.title.toLowerCase().includes('community');
+        const isFamily = event.type === 'kids' || event.title.toLowerCase().includes('family') || event.title.toLowerCase().includes('community');
 
-      return {
-        ...event,
-        isFood,
-        isMusic,
-        isArtisan,
-        isFamily,
-        dayInfo: FESTIVAL_DAYS.find(d => d.id === event.day)
-      };
-    });
-  }, []);
+        return {
+          ...event,
+          isFood,
+          isMusic,
+          isArtisan,
+          isFamily,
+          dayInfo: FESTIVAL_DAYS.find(d => d.id === event.day)
+        };
+      });
+  }, [scheduleEvents]);
 
   // Filtered Scheduled Events
   const filteredScheduledEvents = useMemo(() => {
@@ -227,9 +253,9 @@ export const NationwideVendorDirectory: React.FC<NationwideVendorDirectoryProps>
         return false;
       }
 
-      // 4. Active scheduled locations filter
+      // 4. Active scheduled locations filter (only upcoming/current events)
       if (onlyActiveLocationsFilter) {
-        const hasActiveLocation = eventLocations.some(l => l.stateCode === state.code && l.active);
+        const hasActiveLocation = upcomingEventLocations.some(l => l.stateCode === state.code);
         if (!hasActiveLocation) return false;
       }
 
@@ -771,7 +797,7 @@ END:VCALENDAR`;
                   <span>Scheduled Market Tour</span>
                 </span>
                 <span className="text-[10px] font-mono font-black">
-                  {eventLocations.filter(l => l.active).length}
+                  {upcomingEventLocations.length}
                 </span>
               </button>
             </div>
@@ -985,15 +1011,22 @@ END:VCALENDAR`;
             <div className="bg-[#FAF8F5] rounded-3xl p-5 sm:p-6 border border-[#E8E2D6] space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#E8E2D6] pb-3.5">
                 <div className="space-y-1">
-                  <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-widest bg-emerald-100 text-emerald-800 border border-emerald-200">
-                    <CheckCircle2 className="w-3 h-3 text-emerald-700" />
-                    <span>Official Partner Feed • miamifarmersmarket.org</span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-widest bg-emerald-100 text-emerald-800 border border-emerald-200">
+                      <CheckCircle2 className="w-3 h-3 text-emerald-700" />
+                      <span>Official Partner Feed • miamifarmersmarket.org</span>
+                    </div>
+                    {hiddenPastLocationsCount > 0 && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-[#F0EBE0] text-[#5A5A40] border border-[#E8E2D6]">
+                        <span>{hiddenPastLocationsCount} past {hiddenPastLocationsCount === 1 ? 'event' : 'events'} auto-hidden</span>
+                      </span>
+                    )}
                   </div>
                   <h3 className="font-serif italic font-bold text-xl sm:text-2xl text-[#3D3A30]">
-                    Featured Farmers Markets & Street Festivals
+                    Featured Farmers Markets & Street Festivals ({upcomingEventLocations.length} Upcoming)
                   </h3>
                   <p className="text-xs text-[#6B6658]">
-                    Live markets and vendor events imported from <strong>miamifarmersmarket.org</strong> accepting all 10 vendor categories.
+                    Upcoming live markets and vendor events imported from <strong>miamifarmersmarket.org</strong> accepting all 10 vendor categories. Past events are automatically hidden.
                   </p>
                 </div>
 
@@ -1035,11 +1068,10 @@ END:VCALENDAR`;
                 </div>
               </div>
 
-              {/* Grid of Imported Event Locations */}
+              {/* Grid of Imported Event Locations (Only Upcoming Events Shown) */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {eventLocations
+                {upcomingEventLocations
                   .filter((loc) => {
-                    if (!loc.active) return false;
                     if (selectedStateCode !== 'ALL' && loc.stateCode !== selectedStateCode) return false;
                     if (selectedCityFilter && !loc.cityName.toLowerCase().includes(selectedCityFilter.toLowerCase())) return false;
                     if (searchQuery.trim()) {
@@ -1057,6 +1089,7 @@ END:VCALENDAR`;
                   })
                   .slice(0, 12)
                   .map((loc) => {
+                    const upcomingDates = getUpcomingEventDates(loc.dates);
                     const gallery = loc.images && loc.images.length > 0
                       ? loc.images
                       : loc.imageUrl
@@ -1170,8 +1203,8 @@ END:VCALENDAR`;
                               <div className="flex items-center gap-1.5">
                                 <Calendar className="w-3.5 h-3.5 text-[#5A5A40] shrink-0" />
                                 <span>
-                                  {loc.dates && loc.dates.length > 0
-                                    ? loc.dates.slice(0, 3).map(formatEventDate).join(' • ') + (loc.dates.length > 3 ? ` (+${loc.dates.length - 3} more)` : '')
+                                  {upcomingDates.length > 0
+                                    ? upcomingDates.slice(0, 3).map(formatEventDate).join(' • ') + (upcomingDates.length > 3 ? ` (+${upcomingDates.length - 3} more)` : '')
                                     : 'Upcoming 2026 Dates'}
                                 </span>
                               </div>
@@ -1688,53 +1721,56 @@ END:VCALENDAR`;
                             </div>
                           </div>
 
-                          {/* Scheduled Multi-Date Event Locations in this State */}
+                          {/* Scheduled Multi-Date Event Locations in this State (Only Upcoming Shown) */}
                           {(() => {
-                            const stateLocs = eventLocations.filter(l => l.stateCode === state.code && l.active);
+                            const stateLocs = upcomingEventLocations.filter(l => l.stateCode === state.code);
                             if (stateLocs.length === 0) return null;
                             return (
                               <div className="pt-3 border-t border-[#E8E2D6] space-y-2">
                                 <div className="flex items-center justify-between text-[11px] font-bold text-[#5A5A40] uppercase tracking-wider">
                                   <span className="flex items-center gap-1">
                                     <CalendarDays className="w-3.5 h-3.5" />
-                                    <span>Scheduled Market Locations ({stateLocs.length}):</span>
+                                    <span>Upcoming Market Locations ({stateLocs.length}):</span>
                                   </span>
                                 </div>
 
                                 <div className="space-y-2">
-                                  {stateLocs.map((loc) => (
-                                    <div key={loc.id} className="p-3 rounded-2xl bg-[#FAF8F5] border border-[#E8E2D6] space-y-1.5 text-xs">
-                                      <div className="flex items-center justify-between gap-2">
-                                        <span className="font-bold text-[#3D3A30] text-[12px]">{loc.title}</span>
-                                        <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-[#5A5A40] text-white shrink-0">
-                                          {loc.cityName}
-                                        </span>
-                                      </div>
+                                  {stateLocs.map((loc) => {
+                                    const upcomingDates = getUpcomingEventDates(loc.dates);
+                                    return (
+                                      <div key={loc.id} className="p-3 rounded-2xl bg-[#FAF8F5] border border-[#E8E2D6] space-y-1.5 text-xs">
+                                        <div className="flex items-center justify-between gap-2">
+                                          <span className="font-bold text-[#3D3A30] text-[12px]">{loc.title}</span>
+                                          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-[#5A5A40] text-white shrink-0">
+                                            {loc.cityName}
+                                          </span>
+                                        </div>
 
-                                      <div className="flex items-center gap-1.5 text-[11px] text-[#7A7566]">
-                                        <MapPin className="w-3 h-3 text-[#5A5A40] shrink-0" />
-                                        <span className="truncate">{loc.venueName}</span>
-                                      </div>
+                                        <div className="flex items-center gap-1.5 text-[11px] text-[#7A7566]">
+                                          <MapPin className="w-3 h-3 text-[#5A5A40] shrink-0" />
+                                          <span className="truncate">{loc.venueName}</span>
+                                        </div>
 
-                                      <p className="text-[11px] text-[#5D584D] leading-snug line-clamp-2">
-                                        {loc.description}
-                                      </p>
+                                        <p className="text-[11px] text-[#5D584D] leading-snug line-clamp-2">
+                                          {loc.description}
+                                        </p>
 
-                                      {/* Multiple Dates Display */}
-                                      <div className="flex items-center gap-1 flex-wrap pt-0.5">
-                                        <span className="text-[10px] font-bold text-[#5A5A40] mr-1">Dates:</span>
-                                        {loc.dates && loc.dates.length > 0 ? (
-                                          loc.dates.map((d) => (
-                                            <span key={d} className="px-2 py-0.5 rounded-md bg-white border border-[#D8D2C2] text-[10.5px] font-mono font-semibold text-[#3D3A30]">
-                                              {formatEventDate(d)}
-                                            </span>
-                                          ))
-                                        ) : (
-                                          <span className="text-[10.5px] text-[#8A8576]">TBD</span>
-                                        )}
+                                        {/* Multiple Dates Display */}
+                                        <div className="flex items-center gap-1 flex-wrap pt-0.5">
+                                          <span className="text-[10px] font-bold text-[#5A5A40] mr-1">Upcoming Dates:</span>
+                                          {upcomingDates.length > 0 ? (
+                                            upcomingDates.map((d) => (
+                                              <span key={d} className="px-2 py-0.5 rounded-md bg-white border border-[#D8D2C2] text-[10.5px] font-mono font-semibold text-[#3D3A30]">
+                                                {formatEventDate(d)}
+                                              </span>
+                                            ))
+                                          ) : (
+                                            <span className="text-[10.5px] text-[#8A8576]">TBD</span>
+                                          )}
+                                        </div>
                                       </div>
-                                    </div>
-                                  ))}
+                                    );
+                                  })}
                                 </div>
                               </div>
                             );

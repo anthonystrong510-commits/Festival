@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Calendar, 
   Clock, 
@@ -13,13 +13,21 @@ import {
   Info
 } from 'lucide-react';
 import { EVENT_CONFIG, FESTIVAL_DAYS, FESTIVAL_LOCATION, SCHEDULE_EVENTS } from '../data/festivalData';
+import { ScheduleEvent } from '../types';
+import { subscribeScheduleEvents, isScheduleEventInPast } from '../lib/locationMarketService';
 import { TypesOfVendorBadge } from './TypesOfVendorBadge';
 
 export const ScheduleSection: React.FC = () => {
   const [selectedDayId, setSelectedDayId] = useState<'fri' | 'sat' | 'sun'>('fri');
+  const [scheduleEvents, setScheduleEvents] = useState<ScheduleEvent[]>(SCHEDULE_EVENTS);
+
+  useEffect(() => {
+    const unsub = subscribeScheduleEvents((evts) => setScheduleEvents(evts));
+    return () => unsub();
+  }, []);
 
   const activeDay = FESTIVAL_DAYS.find((d) => d.id === selectedDayId) || FESTIVAL_DAYS[0];
-  const dayEvents = SCHEDULE_EVENTS.filter((e) => e.day === selectedDayId);
+  const dayEvents = scheduleEvents.filter((e) => e.day === selectedDayId && !isScheduleEventInPast(e));
 
   const handleDownloadCalendar = () => {
     // Generate .ics calendar format with general festival schedule

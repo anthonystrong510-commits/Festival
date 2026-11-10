@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { 
   AdminTab, 
@@ -8,7 +8,9 @@ import {
   SmtpConfigData, 
   FestivalConfigData,
   PaymentConfig,
-  Invoice
+  Invoice,
+  EventLocationMarket,
+  ScheduleEvent
 } from '../../types';
 import { 
   auth, 
@@ -56,8 +58,17 @@ import { FestivalSettingsTab } from './tabs/FestivalSettingsTab';
 
 // Modals
 import { InvoicePreviewModal } from './modals/InvoicePreviewModal';
-import { Send, X, Check, Eye, CheckCircle2, ExternalLink, ShieldCheck, Mail, Sparkles } from 'lucide-react';
+import { Send, X, Check, Eye, CheckCircle2, ExternalLink, ShieldCheck, Mail, Sparkles, Bell, Trash2, AlertTriangle, Calendar, MapPin, CheckSquare, Square } from 'lucide-react';
 import { interpolateTemplate } from '../../lib/antiSpamUtils';
+import {
+  subscribeEventLocations,
+  subscribeScheduleEvents,
+  isEventLocationInPast,
+  isScheduleEventInPast,
+  bulkDeleteEventLocations,
+  bulkDeleteScheduleEvents,
+  formatEventDate
+} from '../../lib/locationMarketService';
 
 interface KingAdminPortalProps {
   onExitAdmin: () => void;
@@ -82,6 +93,17 @@ export function KingAdminPortal({ onExitAdmin }: KingAdminPortalProps) {
   const [festivalConfig, setFestivalConfig] = useState<FestivalConfigData>(DEFAULT_FESTIVAL_CONFIG);
   const [paymentConfig, setPaymentConfig] = useState<PaymentConfig>(DEFAULT_PAYMENT_CONFIG);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [eventLocations, setEventLocations] = useState<EventLocationMarket[]>([]);
+  const [scheduleEvents, setScheduleEvents] = useState<ScheduleEvent[]>([]);
+
+  // Past Events Cleanup Notification & Bulk Delete Modal State
+  const [isPastEventsModalOpen, setIsPastEventsModalOpen] = useState(false);
+  const [hasPromptedPastEvents, setHasPromptedPastEvents] = useState(false);
+  const [pastBannerDismissed, setPastBannerDismissed] = useState(false);
+  const [selectedPastLocationIds, setSelectedPastLocationIds] = useState<string[]>([]);
+  const [selectedPastScheduleIds, setSelectedPastScheduleIds] = useState<string[]>([]);
+  const [isDeletingPastEvents, setIsDeletingPastEvents] = useState(false);
+  const [pastEventsToast, setPastEventsToast] = useState<string | null>(null);
 
   // Modals and Inspector states
   const [selectedAppForInspector, setSelectedAppForInspector] = useState<VendorApplicationRecord | null>(null);
@@ -132,6 +154,8 @@ export function KingAdminPortal({ onExitAdmin }: KingAdminPortalProps) {
     const unsubFest = subscribeFestivalConfig((cfg) => setFestivalConfig(cfg));
     const unsubPayments = subscribePaymentConfig((cfg) => setPaymentConfig(cfg));
     const unsubInvoices = subscribeInvoices((invs) => setInvoices(invs));
+    const unsubLocations = subscribeEventLocations((locs) => setEventLocations(locs));
+    const unsubSchedule = subscribeScheduleEvents((evts) => setScheduleEvents(evts));
 
     return () => {
       unsubApps();
@@ -141,8 +165,63 @@ export function KingAdminPortal({ onExitAdmin }: KingAdminPortalProps) {
       unsubFest();
       unsubPayments();
       unsubInvoices();
+      unsubLocations();
+      unsubSchedule();
     };
   }, [currentUser, isDemoAdmin]);
+
+  // Past Events Computation
+  const pastLocations = useMemo(() => {
+    return eventLocations.filter((loc) => isEventLocationInPast(loc));
+  }, [eventLocations]);
+
+  const pastScheduleEvents = useMemo(() => {
+    return scheduleEvents.filter((evt) => isScheduleEventInPast(evt));
+  }, [scheduleEvents]);
+
+  const totalPastEventsCount = pastLocations.length + pastScheduleEvents.length;
+
+  // Sync default selections and prompt admin once when past events are detected
+  useEffect(() => {
+    setSelectedPastLocationIds(pastLocations.map((l) => l.id));
+    setSelectedPastScheduleIds(pastScheduleEvents.map((e) => e.id));
+    if ((pastLocations.length > 0 || pastScheduleEvents.length > 0) && !hasPromptedPastEvents && (currentUser || isDemoAdmin)) {
+      setHasPromptedPastEvents(true);
+      setIsPastEventsModalOpen(true);
+    }
+  }, [pastLocations, pastScheduleEvents, hasPromptedPastEvents, currentUser, isDemoAdmin]);
+
+  const handleBulkDeleteSelectedPastEvents = async () => {
+    if (selectedPastLocationIds.length === 0 && selectedPastScheduleIds.length === 0) return;
+    setIsDeletingPastEvents(true);
+    try {
+      const deletedLocCount = await bulkDeleteEventLocations(selectedPastLocationIds);
+      const deletedSchCount = await bulkDeleteScheduleEvents(selectedPastScheduleIds);
+      const totalDeleted = deletedLocCount + deletedSchCount;
+      setIsPastEventsModalOpen(false);
+      setPastEventsToast(`Successfully bulk-deleted ${totalDeleted} past ${totalDeleted === 1 ? 'event' : 'events'}!`);
+      setTimeout(() => setPastEventsToast(null), 5000);
+    } finally {
+      setIsDeletingPastEvents(false);
+    }
+  };
+
+  const handleQuickBulkDeleteAllPastEvents = async () => {
+    const locIds = pastLocations.map((l) => l.id);
+    const schIds = pastScheduleEvents.map((e) => e.id);
+    if (locIds.length === 0 && schIds.length === 0) return;
+    setIsDeletingPastEvents(true);
+    try {
+      const deletedLocCount = await bulkDeleteEventLocations(locIds);
+      const deletedSchCount = await bulkDeleteScheduleEvents(schIds);
+      const totalDeleted = deletedLocCount + deletedSchCount;
+      setIsPastEventsModalOpen(false);
+      setPastEventsToast(`Successfully bulk-deleted all ${totalDeleted} past ${totalDeleted === 1 ? 'event' : 'events'}!`);
+      setTimeout(() => setPastEventsToast(null), 5000);
+    } finally {
+      setIsDeletingPastEvents(false);
+    }
+  };
 
   const handleSignOut = async () => {
     await adminSignOut();
@@ -364,11 +443,86 @@ export function KingAdminPortal({ onExitAdmin }: KingAdminPortalProps) {
           onSearchChange={setGlobalSearchQuery}
           onOpenNewVendorModal={() => setIsCreateVendorModalOpen(true)}
           tabTitles={tabTitles}
+          pastEventsCount={totalPastEventsCount}
+          onOpenPastEventsCleanup={() => {
+            setPastBannerDismissed(false);
+            setIsPastEventsModalOpen(true);
+          }}
         />
 
         {/* Tab View Container */}
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
-          <div className="max-w-7xl mx-auto">
+          <div className="max-w-7xl mx-auto space-y-5">
+            {pastEventsToast && (
+              <div className="p-3.5 rounded-2xl bg-emerald-700 text-white text-xs font-bold flex items-center justify-between gap-3 shadow-md">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-200 shrink-0" />
+                  <span>{pastEventsToast}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPastEventsToast(null)}
+                  className="text-emerald-200 hover:text-white"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
+            {/* Global Admin Notification Banner for Past Events */}
+            {totalPastEventsCount > 0 && !pastBannerDismissed && (
+              <div className="bg-amber-50/95 border-2 border-amber-300 rounded-3xl p-4 sm:p-5 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                <div className="flex items-start gap-3.5">
+                  <div className="w-10 h-10 rounded-2xl bg-amber-600 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
+                    <Bell className="w-5 h-5" />
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-600 text-white">
+                        Past Events Notification
+                      </span>
+                      <h3 className="font-bold text-sm sm:text-base text-amber-950">
+                        {totalPastEventsCount} Past {totalPastEventsCount === 1 ? 'Event Is' : 'Events Are'} Hidden from Public View — Bulk Delete?
+                      </h3>
+                    </div>
+                    <p className="text-xs text-amber-900 leading-relaxed">
+                      <strong>{pastLocations.length}</strong> market {pastLocations.length === 1 ? 'location' : 'locations'} and{' '}
+                      <strong>{pastScheduleEvents.length}</strong> scheduled stage {pastScheduleEvents.length === 1 ? 'event' : 'events'} have dates in the past. They are automatically hidden from public visitors. Would you like to bulk delete them now?
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setIsPastEventsModalOpen(true)}
+                    className="px-3.5 py-2 rounded-xl bg-white hover:bg-amber-100 text-amber-950 border border-amber-300 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <Eye className="w-3.5 h-3.5 text-amber-700" />
+                    <span>Review & Select ({totalPastEventsCount})</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={isDeletingPastEvents}
+                    onClick={handleQuickBulkDeleteAllPastEvents}
+                    className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer disabled:opacity-60"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>{isDeletingPastEvents ? 'Deleting...' : `Bulk Delete All (${totalPastEventsCount})`}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPastBannerDismissed(true)}
+                    className="p-2 rounded-xl text-amber-800 hover:bg-amber-200/60 transition-colors cursor-pointer"
+                    title="Dismiss banner for now"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
             {currentTab === 'dashboard' && (
               <DashboardTab
                 applications={applications}
@@ -775,6 +929,258 @@ export function KingAdminPortal({ onExitAdmin }: KingAdminPortalProps) {
               </div>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* PAST EVENTS NOTIFICATION & BULK DELETE PROMPT MODAL */}
+      {isPastEventsModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl border border-[#E8E2D6] w-full max-w-2xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col my-auto">
+            {/* Modal Header */}
+            <div className="p-6 border-b border-[#E8E2D6] bg-amber-50/70 flex items-start justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-rose-600 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-100 text-rose-800 border border-rose-200">
+                      Auto-Hidden from Public
+                    </span>
+                    <h3 className="text-base sm:text-lg font-bold text-[#3D3A30]">
+                      Past Events Cleanup & Bulk Delete ({totalPastEventsCount})
+                    </h3>
+                  </div>
+                  <p className="text-xs text-[#6B6658] mt-1">
+                    Events in the past are automatically hidden from public visitors. Select the expired events below that you would like to permanently bulk delete.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsPastEventsModalOpen(false)}
+                className="p-1.5 rounded-full text-[#8A8576] hover:text-[#3D3A30] hover:bg-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto space-y-5 text-xs flex-1">
+              {totalPastEventsCount === 0 ? (
+                <div className="p-8 text-center space-y-2 bg-[#FAF8F5] rounded-2xl border border-[#E8E2D6]">
+                  <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
+                  <h4 className="font-bold text-sm text-[#3D3A30]">All Past Events Cleaned Up!</h4>
+                  <p className="text-xs text-[#7A7566]">
+                    There are currently no expired market locations or past stage events in the database.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {/* Select All Controls */}
+                  <div className="flex items-center justify-between pb-3 border-b border-[#E8E2D6]">
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const allSelected =
+                            selectedPastLocationIds.length === pastLocations.length &&
+                            selectedPastScheduleIds.length === pastScheduleEvents.length;
+                          if (allSelected) {
+                            setSelectedPastLocationIds([]);
+                            setSelectedPastScheduleIds([]);
+                          } else {
+                            setSelectedPastLocationIds(pastLocations.map((l) => l.id));
+                            setSelectedPastScheduleIds(pastScheduleEvents.map((e) => e.id));
+                          }
+                        }}
+                        className="flex items-center gap-1.5 font-bold text-[#5A5A40] hover:text-[#3D3A30] cursor-pointer"
+                      >
+                        {selectedPastLocationIds.length === pastLocations.length &&
+                        selectedPastScheduleIds.length === pastScheduleEvents.length ? (
+                          <CheckSquare className="w-4 h-4 text-[#5A5A40]" />
+                        ) : (
+                          <Square className="w-4 h-4 text-[#8A8576]" />
+                        )}
+                        <span>Select / Deselect All Past Events</span>
+                      </button>
+                    </div>
+                    <span className="font-bold text-rose-700">
+                      {selectedPastLocationIds.length + selectedPastScheduleIds.length} of {totalPastEventsCount} selected for deletion
+                    </span>
+                  </div>
+
+                  {/* Past Market Locations Section */}
+                  {pastLocations.length > 0 && (
+                    <div className="space-y-2.5">
+                      <h4 className="font-bold text-xs uppercase tracking-wider text-[#5A5A40] flex items-center justify-between">
+                        <span>Past Market Locations ({pastLocations.length})</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsPastEventsModalOpen(false);
+                            setCurrentTab('locations');
+                          }}
+                          className="text-[11px] text-[#5A5A40] hover:underline font-semibold"
+                        >
+                          Open Locations Tab &rarr;
+                        </button>
+                      </h4>
+
+                      <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                        {pastLocations.map((loc) => {
+                          const isChecked = selectedPastLocationIds.includes(loc.id);
+                          return (
+                            <div
+                              key={loc.id}
+                              onClick={() =>
+                                setSelectedPastLocationIds((prev) =>
+                                  prev.includes(loc.id) ? prev.filter((id) => id !== loc.id) : [...prev, loc.id]
+                                )
+                              }
+                              className={`p-3 rounded-2xl border flex items-center justify-between gap-3 cursor-pointer transition-all ${
+                                isChecked
+                                  ? 'bg-rose-50/50 border-rose-300'
+                                  : 'bg-[#FAF8F5] border-[#E8E2D6] hover:border-[#D0C8B8]'
+                              }`}
+                            >
+                              <div className="flex items-center gap-3 min-w-0">
+                                {isChecked ? (
+                                  <CheckSquare className="w-4 h-4 text-rose-600 shrink-0" />
+                                ) : (
+                                  <Square className="w-4 h-4 text-[#8A8576] shrink-0" />
+                                )}
+                                {loc.imageUrl && (
+                                  <img
+                                    src={loc.imageUrl}
+                                    alt={loc.title}
+                                    className="w-10 h-10 rounded-xl object-cover border border-[#E8E2D6] shrink-0"
+                                  />
+                                )}
+                                <div className="min-w-0">
+                                  <div className="font-bold text-[#3D3A30] truncate">{loc.title}</div>
+                                  <div className="text-[11px] text-[#7A7566] flex items-center gap-2 flex-wrap">
+                                    <span className="font-semibold text-[#5A5A40]">
+                                      {loc.cityName}, {loc.stateCode}
+                                    </span>
+                                    <span>&bull;</span>
+                                    <span className="font-mono text-rose-700">
+                                      Ended: {loc.dates && loc.dates.length > 0 ? formatEventDate(loc.dates[loc.dates.length - 1]) : 'Past'}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                              <span className="px-2 py-0.5 rounded-md bg-rose-100 text-rose-800 text-[10px] font-bold shrink-0">
+                                Hidden
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Past Stage Schedule Events Section */}
+                  {pastScheduleEvents.length > 0 && (
+                    <div className="space-y-2.5 pt-2">
+                      <h4 className="font-bold text-xs uppercase tracking-wider text-[#5A5A40] flex items-center justify-between">
+                        <span>Past Stage & Schedule Events ({pastScheduleEvents.length})</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsPastEventsModalOpen(false);
+                            setCurrentTab('schedule');
+                          }}
+                          className="text-[11px] text-[#5A5A40] hover:underline font-semibold"
+                        >
+                          Open Schedule Tab &rarr;
+                        </button>
+                      </h4>
+
+                      <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                        {pastScheduleEvents.map((evt) => {
+                          const isChecked = selectedPastScheduleIds.includes(evt.id);
+                          return (
+                            <div
+                              key={evt.id}
+                              onClick={() =>
+                                setSelectedPastScheduleIds((prev) =>
+                                  prev.includes(evt.id) ? prev.filter((id) => id !== evt.id) : [...prev, evt.id]
+                                )
+                              }
+                              className={`p-3 rounded-2xl border flex items-center justify-between gap-3 cursor-pointer transition-all ${
+                                isChecked
+                                  ? 'bg-rose-50/50 border-rose-300'
+                                  : 'bg-[#FAF8F5] border-[#E8E2D6] hover:border-[#D0C8B8]'
+                              }`}
+                            >
+                              <div className="flex items-center gap-3 min-w-0">
+                                {isChecked ? (
+                                  <CheckSquare className="w-4 h-4 text-rose-600 shrink-0" />
+                                ) : (
+                                  <Square className="w-4 h-4 text-[#8A8576] shrink-0" />
+                                )}
+                                <div className="min-w-0">
+                                  <div className="font-bold text-[#3D3A30] truncate">{evt.title}</div>
+                                  <div className="text-[11px] text-[#7A7566] flex items-center gap-2 flex-wrap">
+                                    <span>{evt.location}</span>
+                                    <span>&bull;</span>
+                                    <span className="font-mono text-rose-700">
+                                      Ended: {evt.dates && evt.dates.length > 0 ? formatEventDate(evt.dates[evt.dates.length - 1]) : 'Past'}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                              <span className="px-2 py-0.5 rounded-md bg-rose-100 text-rose-800 text-[10px] font-bold shrink-0">
+                                Hidden
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 border-t border-[#E8E2D6] bg-[#F7F5EE] flex flex-wrap items-center justify-between gap-3">
+              <span className="text-[11px] text-[#7A7566]">
+                Past events remain hidden from visitors until rescheduled or deleted.
+              </span>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsPastEventsModalOpen(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-[#7A7566] hover:bg-white transition-colors"
+                >
+                  Keep Hidden for Now
+                </button>
+
+                {totalPastEventsCount > 0 && (
+                  <button
+                    type="button"
+                    disabled={
+                      isDeletingPastEvents ||
+                      (selectedPastLocationIds.length === 0 && selectedPastScheduleIds.length === 0)
+                    }
+                    onClick={handleBulkDeleteSelectedPastEvents}
+                    className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm disabled:opacity-50 cursor-pointer transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>
+                      {isDeletingPastEvents
+                        ? 'Bulk Deleting...'
+                        : `Bulk Delete Selected (${selectedPastLocationIds.length + selectedPastScheduleIds.length})`}
+                    </span>
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}

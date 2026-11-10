@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Search, 
   Calendar, 
@@ -28,7 +28,8 @@ import {
   SCHEDULE_EVENTS
 } from '../data/festivalData';
 import { USA_STATES_CITIES_DATA } from '../data/usaStatesCitiesData';
-import { BoothId } from '../types';
+import { BoothId, ScheduleEvent } from '../types';
+import { subscribeScheduleEvents, isScheduleEventInPast } from '../lib/locationMarketService';
 
 interface EventSearchAndApplicationProps {
   onOpenVendorModal: (boothId?: BoothId, days?: Array<'fri' | 'sat' | 'sun'>) => void;
@@ -46,32 +47,40 @@ export const EventSearchAndApplication: React.FC<EventSearchAndApplicationProps>
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<EventCategoryFilter>('all');
   const [selectedDay, setSelectedDay] = useState<'all' | 'fri' | 'sat' | 'sun'>('all');
+  const [scheduleEvents, setScheduleEvents] = useState<ScheduleEvent[]>(SCHEDULE_EVENTS);
+
+  useEffect(() => {
+    const unsub = subscribeScheduleEvents((evts) => setScheduleEvents(evts));
+    return () => unsub();
+  }, []);
 
   // Interactive Space Recommender State
   const [selectedVendorType, setSelectedVendorType] = useState<'artisan' | 'food' | 'crafts' | 'commercial'>('artisan');
   const [selectedDaysCount, setSelectedDaysCount] = useState<Array<'fri' | 'sat' | 'sun'>>(['fri', 'sat', 'sun']);
 
-  // All events enriched with search tags & categories
+  // All events enriched with search tags & categories (hiding events in the past)
   const allEnrichedEvents = useMemo(() => {
-    return SCHEDULE_EVENTS.map(event => {
-      const isFood = event.type === 'food' || 
-                     event.title.toLowerCase().includes('food') || 
-                     event.description.toLowerCase().includes('brunch') ||
-                     event.description.toLowerCase().includes('treats');
+    return scheduleEvents
+      .filter((event) => !isScheduleEventInPast(event))
+      .map(event => {
+        const isFood = event.type === 'food' || 
+                       event.title.toLowerCase().includes('food') || 
+                       event.description.toLowerCase().includes('brunch') ||
+                       event.description.toLowerCase().includes('treats');
 
-      const isMusic = event.type === 'entertainment';
+        const isMusic = event.type === 'entertainment';
 
-      const isArtisan = event.type === 'market' || event.type === 'workshop';
+        const isArtisan = event.type === 'market' || event.type === 'workshop';
 
-      return {
-        ...event,
-        isFood,
-        isMusic,
-        isArtisan,
-        dayInfo: FESTIVAL_DAYS.find(d => d.id === event.day)
-      };
-    });
-  }, []);
+        return {
+          ...event,
+          isFood,
+          isMusic,
+          isArtisan,
+          dayInfo: FESTIVAL_DAYS.find(d => d.id === event.day)
+        };
+      });
+  }, [scheduleEvents]);
 
   // Filtered Events based on search and category
   const filteredEvents = useMemo(() => {

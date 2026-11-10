@@ -10,22 +10,23 @@ import {
   orderBy 
 } from 'firebase/firestore';
 import { db, cleanFirestoreData } from './firebase';
-import { EventLocationMarket, CustomCityEntry, VENDOR_KIND_OPTIONS } from '../types';
+import { EventLocationMarket, CustomCityEntry, ScheduleEvent, VENDOR_KIND_OPTIONS } from '../types';
 import { USA_STATES_CITIES_DATA } from '../data/usaStatesCitiesData';
 import { MIAMI_FARMERS_MARKET_LOCATIONS } from '../data/miamiFarmersMarketEvents';
+import { SCHEDULE_EVENTS } from '../data/festivalData';
 
 export const DEFAULT_EVENT_LOCATIONS: EventLocationMarket[] = [
   ...MIAMI_FARMERS_MARKET_LOCATIONS,
   {
     id: 'loc-columbia-sc',
-    title: '2026 Columbia Fall First Fridays',
+    title: '2026 Columbia Fall & Holiday First Fridays',
     stateCode: 'SC',
     stateName: 'South Carolina',
     cityName: 'Columbia',
     venueName: 'Downtown Historic Main St & Riverfront',
     address: '1200 Main Street, Columbia, SC 29201',
-    description: 'Columbia Fall First Fridays and Weekend Expo will be held across multiple dates. Featuring over 150 maker vendors, non-profit community booths, food truck row, fine art exhibits, craft beverage gardens, and live music stages.',
-    dates: ['2026-10-02', '2026-10-03', '2026-10-04'],
+    description: 'Columbia First Fridays and Weekend Expo will be held across multiple dates. Featuring over 150 maker vendors, non-profit community booths, food truck row, fine art exhibits, craft beverage gardens, and live music stages.',
+    dates: ['2026-11-20', '2026-11-21', '2026-11-22', '2026-12-04', '2026-12-05', '2026-12-06'],
     days: ['fri', 'sat', 'sun'],
     hours: '10:00 AM - 7:00 PM',
     vendorTypesAccepted: [...VENDOR_KIND_OPTIONS, 'Music', 'Art', 'Craft', 'Food', 'Commercial'],
@@ -67,7 +68,7 @@ export const DEFAULT_EVENT_LOCATIONS: EventLocationMarket[] = [
     venueName: 'Sam Houston Park & Downtown Promenade',
     address: '1000 Bagby St, Houston, TX 77002',
     description: 'The premier Houston Gulf Coast artisan marketplace bringing together over 300 fine artists, Texas country & blues bands, culinary innovators, international food trucks, and handcrafted makers across 3 full festival days.',
-    dates: ['2026-10-09', '2026-10-10', '2026-10-11'],
+    dates: ['2026-11-27', '2026-11-28', '2026-11-29'],
     days: ['fri', 'sat', 'sun'],
     hours: '10:00 AM - 6:00 PM',
     vendorTypesAccepted: [...VENDOR_KIND_OPTIONS, 'Music', 'Art', 'Craft', 'Food', 'Commercial'],
@@ -102,14 +103,14 @@ export const DEFAULT_EVENT_LOCATIONS: EventLocationMarket[] = [
   },
   {
     id: 'loc-denver-co',
-    title: '2026 Denver Mile-High Autumn Artisan Expo',
+    title: '2026 Denver Mile-High Winter Artisan Expo',
     stateCode: 'CO',
     stateName: 'Colorado',
     cityName: 'Denver',
     venueName: 'Civic Center Park Promenade',
     address: '101 W 14th Ave, Denver, CO 80204',
-    description: 'Outdoor Rocky Mountain showcase of fine pottery, mountain gear crafters, local micro-distillers, bluegrass bands, and gourmet food trucks under golden autumn foliage.',
-    dates: ['2026-10-16', '2026-10-17', '2026-10-18'],
+    description: 'Outdoor Rocky Mountain showcase of fine pottery, mountain gear crafters, local micro-distillers, bluegrass bands, and gourmet food trucks.',
+    dates: ['2026-11-20', '2026-11-21', '2026-11-22'],
     days: ['fri', 'sat', 'sun'],
     hours: '10:00 AM - 6:00 PM',
     vendorTypesAccepted: [...VENDOR_KIND_OPTIONS, 'Music', 'Art', 'Craft', 'Food', 'Commercial'],
@@ -130,7 +131,7 @@ export const DEFAULT_EVENT_LOCATIONS: EventLocationMarket[] = [
     venueName: 'Riverfront Park & Lower Broadway Commons',
     address: '100 1st Ave N, Nashville, TN 37201',
     description: 'Nashville celebration featuring live country and soul performances, handcrafted leather goods, custom instrument makers, Nashville hot chicken masters, and regional craft distilleries.',
-    dates: ['2026-10-23', '2026-10-24', '2026-10-25'],
+    dates: ['2026-12-11', '2026-12-12', '2026-12-13'],
     days: ['fri', 'sat', 'sun'],
     hours: '11:00 AM - 9:00 PM',
     vendorTypesAccepted: [...VENDOR_KIND_OPTIONS, 'Music', 'Art', 'Craft', 'Food', 'Commercial'],
@@ -151,7 +152,7 @@ export const DEFAULT_EVENT_LOCATIONS: EventLocationMarket[] = [
     venueName: 'Grant Park South Grove',
     address: '337 E Randolph St, Chicago, IL 60601',
     description: 'Premier Midwestern arts and craft market with views of Lake Michigan and the skyline. Over 200 vendors, jazz and blues stages, craft brewers, and local bakers.',
-    dates: ['2026-10-02', '2026-10-03', '2026-10-04'],
+    dates: ['2026-11-27', '2026-11-28', '2026-11-29'],
     days: ['fri', 'sat', 'sun'],
     hours: '10:00 AM - 6:30 PM',
     vendorTypesAccepted: [...VENDOR_KIND_OPTIONS, 'Music', 'Art', 'Craft', 'Food', 'Commercial'],
@@ -165,12 +166,117 @@ export const DEFAULT_EVENT_LOCATIONS: EventLocationMarket[] = [
   }
 ];
 
-const LOCATIONS_CACHE_KEY = 'columbia_event_locations_cache_v3';
+const LOCATIONS_CACHE_KEY = 'columbia_event_locations_cache_v4';
+const DELETED_LOCATIONS_KEY = 'columbia_deleted_location_ids_v1';
 const CITIES_CACHE_KEY = 'columbia_custom_cities_cache_v1';
+const SCHEDULE_EVENTS_CACHE_KEY = 'columbia_admin_schedule_events_v2';
+const DELETED_SCHEDULE_EVENTS_KEY = 'columbia_deleted_schedule_event_ids_v1';
 
 const DEFAULT_LOCATIONS_BY_ID = new Map<string, EventLocationMarket>(
   DEFAULT_EVENT_LOCATIONS.map((loc) => [loc.id, loc])
 );
+
+const locationSubscribers = new Set<(locations: EventLocationMarket[]) => void>();
+const scheduleEventSubscribers = new Set<(events: ScheduleEvent[]) => void>();
+
+function getDeletedLocationIds(): Set<string> {
+  try {
+    const raw = localStorage.getItem(DELETED_LOCATIONS_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return new Set(parsed);
+    }
+  } catch {}
+  return new Set();
+}
+
+function addDeletedLocationIds(ids: string[]): void {
+  try {
+    const current = getDeletedLocationIds();
+    ids.forEach((id) => current.add(id));
+    localStorage.setItem(DELETED_LOCATIONS_KEY, JSON.stringify(Array.from(current)));
+  } catch {}
+}
+
+function removeDeletedLocationIds(ids: string[]): void {
+  try {
+    const current = getDeletedLocationIds();
+    ids.forEach((id) => current.delete(id));
+    localStorage.setItem(DELETED_LOCATIONS_KEY, JSON.stringify(Array.from(current)));
+  } catch {}
+}
+
+function notifyLocationSubscribers(list: EventLocationMarket[]): void {
+  locationSubscribers.forEach((cb) => {
+    try {
+      cb(list);
+    } catch {}
+  });
+}
+
+/**
+ * Returns today's local date in YYYY-MM-DD format
+ */
+export function getTodayDateString(): string {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+/**
+ * Determines whether an EventLocationMarket has completely passed (all scheduled dates < today).
+ * Events with at least one date today or in the future return false.
+ */
+export function isEventLocationInPast(
+  loc: EventLocationMarket,
+  todayStr: string = getTodayDateString()
+): boolean {
+  const allDates: string[] = [];
+  if (Array.isArray(loc.dates)) {
+    for (const d of loc.dates) {
+      if (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d.trim())) {
+        allDates.push(d.trim());
+      }
+    }
+  }
+  if (typeof loc.endDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(loc.endDate.trim())) {
+    allDates.push(loc.endDate.trim());
+  }
+  if (typeof loc.startDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(loc.startDate.trim())) {
+    allDates.push(loc.startDate.trim());
+  }
+
+  if (allDates.length === 0) return false;
+  return allDates.every((d) => d < todayStr);
+}
+
+/**
+ * Returns only the upcoming (>= today) dates for an event if available;
+ * falls back to the original list if all dates are in the past.
+ */
+export function getUpcomingEventDates(
+  dates: string[] = [],
+  todayStr: string = getTodayDateString()
+): string[] {
+  if (!Array.isArray(dates) || dates.length === 0) return [];
+  const upcoming = dates.filter((d) => d >= todayStr);
+  return upcoming.length > 0 ? upcoming : dates;
+}
+
+/**
+ * Determines whether a ScheduleEvent has explicit dates that are all in the past (< today).
+ */
+export function isScheduleEventInPast(
+  evt: ScheduleEvent,
+  todayStr: string = getTodayDateString()
+): boolean {
+  if (!Array.isArray(evt.dates) || evt.dates.length === 0) return false;
+  const validDates = evt.dates.filter((d) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d.trim()));
+  if (validDates.length === 0) return false;
+  return validDates.every((d) => d < todayStr);
+}
 
 function enrichWithDefaultImages(loc: EventLocationMarket): EventLocationMarket {
   const def = DEFAULT_LOCATIONS_BY_ID.get(loc.id);
@@ -289,50 +395,57 @@ export function getCitiesForState(stateCode: string, customCities: CustomCityEnt
 export function subscribeEventLocations(
   callback: (locations: EventLocationMarket[]) => void
 ): () => void {
-  // 1. Initial cached fallback merged with DEFAULT_EVENT_LOCATIONS
+  locationSubscribers.add(callback);
+  const deletedIds = getDeletedLocationIds();
+
+  // 1. Initial cached fallback merged with DEFAULT_EVENT_LOCATIONS (excluding deleted IDs)
   try {
     const cachedStr = localStorage.getItem(LOCATIONS_CACHE_KEY);
     if (cachedStr) {
       const parsed = JSON.parse(cachedStr);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        const existingIds = new Set(parsed.map((l: EventLocationMarket) => l.id));
-        const merged = parsed.map(enrichWithDefaultImages);
+        const filteredParsed = parsed.filter((l: EventLocationMarket) => !deletedIds.has(l.id));
+        const existingIds = new Set(filteredParsed.map((l: EventLocationMarket) => l.id));
+        const merged = filteredParsed.map(enrichWithDefaultImages);
         for (const def of DEFAULT_EVENT_LOCATIONS) {
-          if (!existingIds.has(def.id)) {
+          if (!existingIds.has(def.id) && !deletedIds.has(def.id)) {
             merged.push(def);
           }
         }
         callback(merged);
       } else {
-        callback(DEFAULT_EVENT_LOCATIONS);
+        callback(DEFAULT_EVENT_LOCATIONS.filter((d) => !deletedIds.has(d.id)));
       }
     } else {
-      callback(DEFAULT_EVENT_LOCATIONS);
+      callback(DEFAULT_EVENT_LOCATIONS.filter((d) => !deletedIds.has(d.id)));
     }
   } catch {
-    callback(DEFAULT_EVENT_LOCATIONS);
+    callback(DEFAULT_EVENT_LOCATIONS.filter((d) => !deletedIds.has(d.id)));
   }
 
   // 2. Firestore real-time listener
   const colRef = collection(db, 'event_locations');
-  return onSnapshot(
+  const unsubFirestore = onSnapshot(
     colRef,
     (snapshot) => {
+      const currentDeletedIds = getDeletedLocationIds();
       if (snapshot.empty) {
-        // First run or empty, seed defaults
-        callback(DEFAULT_EVENT_LOCATIONS);
+        const seeded = DEFAULT_EVENT_LOCATIONS.filter((d) => !currentDeletedIds.has(d.id));
+        callback(seeded);
         return;
       }
       const list: EventLocationMarket[] = [];
       snapshot.forEach((docSnap) => {
-        list.push(enrichWithDefaultImages({ id: docSnap.id, ...(docSnap.data() as Omit<EventLocationMarket, 'id'>) }));
+        if (!currentDeletedIds.has(docSnap.id)) {
+          list.push(enrichWithDefaultImages({ id: docSnap.id, ...(docSnap.data() as Omit<EventLocationMarket, 'id'>) }));
+        }
       });
 
-      // Merge defaults if specific locations not present
+      // Merge defaults if specific locations not present and not deleted
       const existingIds = new Set(list.map(l => l.id));
       const combined = [...list];
       for (const def of DEFAULT_EVENT_LOCATIONS) {
-        if (!existingIds.has(def.id)) {
+        if (!existingIds.has(def.id) && !currentDeletedIds.has(def.id)) {
           combined.push(def);
         }
       }
@@ -346,6 +459,11 @@ export function subscribeEventLocations(
       console.warn('Snapshot note for event_locations:', err);
     }
   );
+
+  return () => {
+    locationSubscribers.delete(callback);
+    unsubFirestore();
+  };
 }
 
 /**
@@ -390,6 +508,9 @@ export async function importEventsFromMiamiFarmersMarket(): Promise<{
     console.warn('Live fetch fallback to curated miamifarmersmarket.org dataset:', err);
   }
 
+  // Remove imported IDs from deleted list when explicitly re-imported
+  removeDeletedLocationIds(eventsToImport.map((e) => e.id));
+
   // Persist to Firestore & LocalStorage
   await Promise.all(
     eventsToImport.map(async (loc) => {
@@ -401,6 +522,7 @@ export async function importEventsFromMiamiFarmersMarket(): Promise<{
   );
 
   try {
+    const deletedIds = getDeletedLocationIds();
     const cachedStr = localStorage.getItem(LOCATIONS_CACHE_KEY);
     const current: EventLocationMarket[] = cachedStr ? JSON.parse(cachedStr) : [...DEFAULT_EVENT_LOCATIONS];
     const map = new Map<string, EventLocationMarket>();
@@ -408,12 +530,13 @@ export async function importEventsFromMiamiFarmersMarket(): Promise<{
       map.set(item.id, item);
     }
     for (const existing of current) {
-      if (!map.has(existing.id)) {
+      if (!map.has(existing.id) && !deletedIds.has(existing.id)) {
         map.set(existing.id, enrichWithDefaultImages(existing));
       }
     }
     const updatedList = Array.from(map.values());
     localStorage.setItem(LOCATIONS_CACHE_KEY, JSON.stringify(updatedList));
+    notifyLocationSubscribers(updatedList);
   } catch {}
 
   return {
@@ -427,6 +550,7 @@ export async function saveEventLocation(
   location: Partial<EventLocationMarket> & { cityName: string; stateCode: string }
 ): Promise<EventLocationMarket> {
   const id = location.id || `loc-${location.cityName.toLowerCase().replace(/[^a-z0-9]/g, '')}-${location.stateCode.toLowerCase()}-${Date.now().toString(36)}`;
+  removeDeletedLocationIds([id]);
   
   const fullItem: EventLocationMarket = {
     id,
@@ -469,8 +593,11 @@ export async function saveEventLocation(
 
   // Update local cache
   try {
+    const deletedIds = getDeletedLocationIds();
     const cachedStr = localStorage.getItem(LOCATIONS_CACHE_KEY);
-    const list: EventLocationMarket[] = cachedStr ? JSON.parse(cachedStr) : [...DEFAULT_EVENT_LOCATIONS];
+    const list: EventLocationMarket[] = cachedStr
+      ? JSON.parse(cachedStr).filter((l: EventLocationMarket) => !deletedIds.has(l.id))
+      : DEFAULT_EVENT_LOCATIONS.filter((l) => !deletedIds.has(l.id));
     const index = list.findIndex(l => l.id === id);
     if (index >= 0) {
       list[index] = fullItem;
@@ -478,26 +605,45 @@ export async function saveEventLocation(
       list.unshift(fullItem);
     }
     localStorage.setItem(LOCATIONS_CACHE_KEY, JSON.stringify(list));
+    notifyLocationSubscribers(list);
   } catch {}
 
   return fullItem;
 }
 
 export async function deleteEventLocation(id: string): Promise<void> {
-  try {
-    await deleteDoc(doc(db, 'event_locations', id));
-  } catch (err) {
-    console.warn('Could not delete from Firestore event_locations:', err);
-  }
+  await bulkDeleteEventLocations([id]);
+}
+
+/**
+ * Bulk deletes multiple event locations from Firestore and local cache,
+ * and records their IDs so seeded defaults are not re-added automatically.
+ */
+export async function bulkDeleteEventLocations(ids: string[]): Promise<number> {
+  if (!ids || ids.length === 0) return 0;
+  const idSet = new Set(ids);
+  addDeletedLocationIds(ids);
 
   try {
+    const deletedIds = getDeletedLocationIds();
     const cachedStr = localStorage.getItem(LOCATIONS_CACHE_KEY);
-    if (cachedStr) {
-      const list: EventLocationMarket[] = JSON.parse(cachedStr);
-      const filtered = list.filter(l => l.id !== id);
-      localStorage.setItem(LOCATIONS_CACHE_KEY, JSON.stringify(filtered));
-    }
+    const baseList: EventLocationMarket[] = cachedStr ? JSON.parse(cachedStr) : [...DEFAULT_EVENT_LOCATIONS];
+    const filtered = baseList.filter((l) => !idSet.has(l.id) && !deletedIds.has(l.id));
+    localStorage.setItem(LOCATIONS_CACHE_KEY, JSON.stringify(filtered));
+    notifyLocationSubscribers(filtered);
   } catch {}
+
+  await Promise.all(
+    ids.map(async (id) => {
+      try {
+        await deleteDoc(doc(db, 'event_locations', id));
+      } catch (err) {
+        console.warn(`Could not delete ${id} from Firestore event_locations:`, err);
+      }
+    })
+  );
+
+  return ids.length;
 }
 
 /**
@@ -523,8 +669,11 @@ export async function bulkUpdateLocationsDays(
 
   // 1. Update in local cache
   try {
+    const deletedIds = getDeletedLocationIds();
     const cachedStr = localStorage.getItem(LOCATIONS_CACHE_KEY);
-    const list: EventLocationMarket[] = cachedStr ? JSON.parse(cachedStr) : [...DEFAULT_EVENT_LOCATIONS];
+    const list: EventLocationMarket[] = (cachedStr ? JSON.parse(cachedStr) : [...DEFAULT_EVENT_LOCATIONS]).filter(
+      (item: EventLocationMarket) => !deletedIds.has(item.id)
+    );
     
     for (const item of list) {
       if (ids.includes(item.id)) {
@@ -553,6 +702,7 @@ export async function bulkUpdateLocationsDays(
       }
     }
     localStorage.setItem(LOCATIONS_CACHE_KEY, JSON.stringify(list));
+    notifyLocationSubscribers(list);
   } catch {}
 
   // 2. Update Firestore documents
@@ -586,6 +736,87 @@ export async function bulkUpdateLocationsDays(
       }
     })
   );
+}
+
+// -------------------------------------------------------------
+// SCHEDULE EVENTS SUBSCRIPTION & BULK DELETE
+// -------------------------------------------------------------
+
+function getDeletedScheduleEventIds(): Set<string> {
+  try {
+    const raw = localStorage.getItem(DELETED_SCHEDULE_EVENTS_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return new Set(parsed);
+    }
+  } catch {}
+  return new Set();
+}
+
+function addDeletedScheduleEventIds(ids: string[]): void {
+  try {
+    const current = getDeletedScheduleEventIds();
+    ids.forEach((id) => current.add(id));
+    localStorage.setItem(DELETED_SCHEDULE_EVENTS_KEY, JSON.stringify(Array.from(current)));
+  } catch {}
+}
+
+export function getInitialScheduleEvents(): ScheduleEvent[] {
+  const deletedIds = getDeletedScheduleEventIds();
+  try {
+    const saved = localStorage.getItem(SCHEDULE_EVENTS_CACHE_KEY);
+    if (saved) {
+      const parsed: ScheduleEvent[] = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed.filter((e) => !deletedIds.has(e.id));
+      }
+    }
+  } catch {}
+
+  return SCHEDULE_EVENTS.filter((e) => !deletedIds.has(e.id)).map((evt) => ({
+    ...evt,
+    days: evt.days || [evt.day as 'fri' | 'sat' | 'sun'],
+    dates:
+      evt.dates && evt.dates.length > 0
+        ? evt.dates
+        : evt.day === 'fri'
+        ? ['2026-12-04']
+        : evt.day === 'sat'
+        ? ['2026-12-05']
+        : ['2026-12-06'],
+    locationDescription: evt.locationDescription || 'Festival Pavilion Main Plaza & Stage',
+  }));
+}
+
+export function subscribeScheduleEvents(
+  callback: (events: ScheduleEvent[]) => void
+): () => void {
+  scheduleEventSubscribers.add(callback);
+  callback(getInitialScheduleEvents());
+  return () => {
+    scheduleEventSubscribers.delete(callback);
+  };
+}
+
+export function saveScheduleEventsList(events: ScheduleEvent[]): void {
+  try {
+    localStorage.setItem(SCHEDULE_EVENTS_CACHE_KEY, JSON.stringify(events));
+  } catch {}
+  scheduleEventSubscribers.forEach((cb) => {
+    try {
+      cb(events);
+    } catch {}
+  });
+}
+
+export async function bulkDeleteScheduleEvents(ids: string[]): Promise<number> {
+  if (!ids || ids.length === 0) return 0;
+  const idSet = new Set(ids);
+  addDeletedScheduleEventIds(ids);
+  const current = getInitialScheduleEvents();
+  const filtered = current.filter((e) => !idSet.has(e.id));
+  saveScheduleEventsList(filtered);
+  return ids.length;
 }
 
 // -------------------------------------------------------------

@@ -21,6 +21,8 @@ interface AdminTopBarProps {
   onSearchChange: (query: string) => void;
   onOpenNewVendorModal?: () => void;
   tabTitles: Record<AdminTab, { title: string; subtitle: string }>;
+  pastEventsCount?: number;
+  onOpenPastEventsCleanup?: () => void;
 }
 
 export function AdminTopBar({
@@ -32,7 +34,9 @@ export function AdminTopBar({
   searchQuery,
   onSearchChange,
   onOpenNewVendorModal,
-  tabTitles
+  tabTitles,
+  pastEventsCount = 0,
+  onOpenPastEventsCleanup
 }: AdminTopBarProps) {
   const currentInfo = tabTitles[currentTab] || { title: 'Admin Panel', subtitle: 'Festival Management' };
 
@@ -83,6 +87,34 @@ export function AdminTopBar({
 
       {/* Right Quick Actions */}
       <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+        {/* Past Events Notification & Bulk Delete Trigger */}
+        {onOpenPastEventsCleanup && (
+          <button
+            type="button"
+            onClick={onOpenPastEventsCleanup}
+            className={`relative px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+              pastEventsCount > 0
+                ? 'bg-amber-50 hover:bg-amber-100 border-amber-300 text-amber-900 shadow-2xs'
+                : 'bg-[#F7F5EE] hover:bg-[#EAE4D6] border-[#E8E2D6] text-[#6B6658]'
+            }`}
+            title={
+              pastEventsCount > 0
+                ? `${pastEventsCount} past events hidden from public view — click to review & bulk delete`
+                : 'No past events pending cleanup'
+            }
+          >
+            <Bell className={`w-3.5 h-3.5 ${pastEventsCount > 0 ? 'text-amber-700 animate-bounce' : 'text-[#8A8576]'}`} />
+            <span className="hidden sm:inline">Past Events</span>
+            <span
+              className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-black ${
+                pastEventsCount > 0 ? 'bg-rose-600 text-white' : 'bg-[#E8E2D6] text-[#5A5A40]'
+              }`}
+            >
+              {pastEventsCount}
+            </span>
+          </button>
+        )}
+
         {/* Seed Database button */}
         <button
           onClick={onSeedData}

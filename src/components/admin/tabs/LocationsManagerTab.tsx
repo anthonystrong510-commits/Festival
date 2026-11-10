@@ -43,6 +43,9 @@ import {
   formatEventDateRange,
   getCitiesForState,
   importEventsFromMiamiFarmersMarket,
+  syncAll100NationwideEventsToFirestore,
+  bulkReschedulePastEvents,
+  ReschedulePreset,
   isEventLocationInPast,
   getTodayDateString
 } from '../../../lib/locationMarketService';
@@ -66,7 +69,9 @@ export function LocationsManagerTab() {
   const [isAddCityModalOpen, setIsAddCityModalOpen] = useState(false);
   const [feedbackNotice, setFeedbackNotice] = useState<string | null>(null);
   const [isImportingMiami, setIsImportingMiami] = useState(false);
+  const [isSyncing100Events, setIsSyncing100Events] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [isReschedulingPast, setIsReschedulingPast] = useState(false);
 
   // New/Editing Location Form State
   const [formTitle, setFormTitle] = useState('');
@@ -191,6 +196,32 @@ export function LocationsManagerTab() {
       }
     } finally {
       setIsBulkDeleting(false);
+    }
+  };
+
+  // Bulk Reschedule Past Locations Handler
+  const handleReschedulePastLocations = async (idsToReschedule: string[], preset: ReschedulePreset) => {
+    if (idsToReschedule.length === 0) return;
+    setIsReschedulingPast(true);
+    try {
+      const res = await bulkReschedulePastEvents({
+        locationIds: idsToReschedule,
+        preset,
+        days: ['fri', 'sat', 'sun']
+      });
+      setSelectedLocationIds((prev) => prev.filter((id) => !idsToReschedule.includes(id)));
+      const presetText =
+        preset === 'dec_end_week'
+          ? 'Dec 18–20, 2026 (Fri–Sun)'
+          : preset === 'jan_end_week'
+          ? 'Jan 29–31, 2027 (Fri–Sun)'
+          : 'Dec 18–20, 2026 & Jan 29–31, 2027 (Fri–Sun)';
+      showToast(`Rescheduled ${res.rescheduledLocationsCount} past event location${res.rescheduledLocationsCount === 1 ? '' : 's'} to ${presetText}!`);
+      if (timelineFilter === 'PAST') {
+        setTimelineFilter('ALL');
+      }
+    } finally {
+      setIsReschedulingPast(false);
     }
   };
 
@@ -459,6 +490,30 @@ export function LocationsManagerTab() {
         <div className="flex items-center gap-2.5 flex-wrap">
           <button
             type="button"
+            disabled={isSyncing100Events}
+            onClick={async () => {
+              setIsSyncing100Events(true);
+              try {
+                const res = await syncAll100NationwideEventsToFirestore();
+                setLocations((prev) => {
+                  const byId = new Map<string, EventLocationMarket>();
+                  for (const item of res.locations) byId.set(item.id, item);
+                  for (const existing of prev) if (!byId.has(existing.id)) byId.set(existing.id, existing);
+                  return Array.from(byId.values());
+                });
+                showToast(`Synced all ${res.syncedCount} Nationwide USA State Events (50 States • Dec 18–20 & Jan 29–31 Fri–Sun)!`);
+              } finally {
+                setIsSyncing100Events(false);
+              }
+            }}
+            className="px-4 py-2.5 rounded-2xl bg-indigo-700 hover:bg-indigo-800 text-white text-xs font-bold flex items-center gap-1.5 transition-colors shadow-xs disabled:opacity-60 cursor-pointer"
+          >
+            <Globe className={`w-4 h-4 ${isSyncing100Events ? 'animate-spin' : ''}`} />
+            <span>{isSyncing100Events ? 'Syncing 100 Events...' : 'Sync 100 USA State Events'}</span>
+          </button>
+
+          <button
+            type="button"
             disabled={isImportingMiami}
             onClick={async () => {
               setIsImportingMiami(true);
@@ -475,7 +530,7 @@ export function LocationsManagerTab() {
                 setIsImportingMiami(false);
               }
             }}
-            className="px-4 py-2.5 rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold flex items-center gap-1.5 transition-colors shadow-xs disabled:opacity-60"
+            className="px-4 py-2.5 rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold flex items-center gap-1.5 transition-colors shadow-xs disabled:opacity-60 cursor-pointer"
           >
             <RefreshCw className={`w-4 h-4 ${isImportingMiami ? 'animate-spin' : ''}`} />
             <span>{isImportingMiami ? 'Importing Events...' : 'Import miamifarmersmarket.org'}</span>
@@ -499,7 +554,7 @@ export function LocationsManagerTab() {
         </div>
       </div>
 
-      {/* PAST EVENTS NOTIFICATION & BULK DELETE PROMPT BANNER */}
+      {/* PAST EVENTS NOTIFICATION: RESCHEDULE DATES OR BULK DELETE BANNER */}
       {pastLocations.length > 0 && (
         <div className="bg-amber-50 border-2 border-amber-300/90 rounded-3xl p-5 shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="flex items-start gap-3.5">
@@ -519,7 +574,7 @@ export function LocationsManagerTab() {
                 {pastLocations.length} market location{pastLocations.length === 1 ? ' has' : 's have'} ended and been automatically hidden from the public directory.
               </h3>
               <p className="text-xs text-amber-900/80 mt-0.5">
-                Would you like to bulk delete these past events now, or select them to reschedule their dates for an upcoming market cycle?
+                Instead of deleting, you can <strong>reschedule all past event dates</strong> to upcoming Friday–Sunday weekends (Dec 18–20, 2026 or Jan 29–31, 2027), or bulk delete them.
               </p>
             </div>
           </div>
@@ -541,18 +596,53 @@ export function LocationsManagerTab() {
 
             <button
               type="button"
-              onClick={() => {
-                setSelectedLocationIds(pastLocations.map((l) => l.id));
-                showToast(`Selected ${pastLocations.length} past event locations for bulk action.`);
-              }}
-              className="px-3.5 py-2.5 rounded-2xl bg-white hover:bg-amber-100/70 text-amber-950 border border-amber-300 text-xs font-bold transition-colors"
+              disabled={isReschedulingPast || isBulkDeleting}
+              onClick={() =>
+                handleReschedulePastLocations(
+                  pastLocations.map((l) => l.id),
+                  'dec_end_week'
+                )
+              }
+              className="px-3.5 py-2.5 rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors disabled:opacity-60 cursor-pointer"
             >
-              Select All Past ({pastLocations.length})
+              <CalendarDays className="w-4 h-4" />
+              <span>{isReschedulingPast ? 'Rescheduling...' : `Reschedule All Past to Dec 18–20`}</span>
             </button>
 
             <button
               type="button"
-              disabled={isBulkDeleting}
+              disabled={isReschedulingPast || isBulkDeleting}
+              onClick={() =>
+                handleReschedulePastLocations(
+                  pastLocations.map((l) => l.id),
+                  'jan_end_week'
+                )
+              }
+              className="px-3.5 py-2.5 rounded-2xl bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors disabled:opacity-60 cursor-pointer"
+            >
+              <CalendarDays className="w-4 h-4" />
+              <span>{isReschedulingPast ? 'Rescheduling...' : `Reschedule All Past to Jan 29–31`}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedLocationIds(pastLocations.map((l) => l.id));
+                setBulkStartDate('2026-12-18');
+                setBulkEndDate('2026-12-20');
+                setBulkDates(['2026-12-18', '2026-12-19', '2026-12-20']);
+                setBulkDays(['fri', 'sat', 'sun']);
+                setBulkActionType('set_range');
+                setIsBulkEditModalOpen(true);
+              }}
+              className="px-3.5 py-2.5 rounded-2xl bg-white hover:bg-amber-100/70 text-amber-950 border border-amber-300 text-xs font-bold transition-colors cursor-pointer"
+            >
+              Custom Reschedule ({pastLocations.length})
+            </button>
+
+            <button
+              type="button"
+              disabled={isBulkDeleting || isReschedulingPast}
               onClick={() =>
                 handleBulkDelete(
                   pastLocations.map((l) => l.id),
@@ -562,7 +652,7 @@ export function LocationsManagerTab() {
               className="px-4 py-2.5 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-colors disabled:opacity-60 cursor-pointer"
             >
               <Trash2 className="w-4 h-4" />
-              <span>{isBulkDeleting ? 'Deleting...' : `Bulk Delete Past Events (${pastLocations.length})`}</span>
+              <span>{isBulkDeleting ? 'Deleting...' : `Bulk Delete Past (${pastLocations.length})`}</span>
             </button>
           </div>
         </div>
@@ -1635,10 +1725,36 @@ export function LocationsManagerTab() {
               {/* Bulk Date Range Input */}
               {bulkActionType === 'set_range' && (
                 <div className="p-3.5 rounded-2xl bg-[#F7F5EE] border border-[#E8E2D6] space-y-3">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
                     <label className="font-bold text-[#5A5A40] block">
                       Continuous Date Range (Applies to {selectedLocationIds.length} locations):
                     </label>
+                  </div>
+
+                  {/* Quick End-Week Presets */}
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setBulkStartDate('2026-12-18');
+                        setBulkEndDate('2026-12-20');
+                        setBulkDays(['fri', 'sat', 'sun']);
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-900 text-[11px] font-bold border border-emerald-300 transition-colors cursor-pointer"
+                    >
+                      Dec 18–20, 2026 (Fri–Sun)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setBulkStartDate('2027-01-29');
+                        setBulkEndDate('2027-01-31');
+                        setBulkDays(['fri', 'sat', 'sun']);
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-teal-100 hover:bg-teal-200 text-teal-900 text-[11px] font-bold border border-teal-300 transition-colors cursor-pointer"
+                    >
+                      Jan 29–31, 2027 (Fri–Sun)
+                    </button>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2">

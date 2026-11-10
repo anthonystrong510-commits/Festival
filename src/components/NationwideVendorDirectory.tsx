@@ -73,11 +73,34 @@ export const NationwideVendorDirectory: React.FC<NationwideVendorDirectoryProps>
   const [isImportingMiami, setIsImportingMiami] = useState<boolean>(false);
   const [miamiSyncNotice, setMiamiSyncNotice] = useState<string | null>(null);
   const [activeImageByLocId, setActiveImageByLocId] = useState<Record<string, string>>({});
+  const [weekendFilter, setWeekendFilter] = useState<'ALL' | 'DEC' | 'JAN'>('ALL');
+  const [showAll100Events, setShowAll100Events] = useState<boolean>(true);
 
   // Only show active, non-past event locations to public visitors
   const upcomingEventLocations = useMemo(() => {
     return eventLocations.filter((loc) => loc.active && !isEventLocationInPast(loc));
   }, [eventLocations]);
+
+  const filteredUpcomingEventLocations = useMemo(() => {
+    return upcomingEventLocations.filter((loc) => {
+      if (selectedStateCode !== 'ALL' && loc.stateCode !== selectedStateCode) return false;
+      if (selectedCityFilter && !loc.cityName.toLowerCase().includes(selectedCityFilter.toLowerCase())) return false;
+      if (weekendFilter === 'DEC' && !(loc.dates || []).some((d) => d.startsWith('2026-12-'))) return false;
+      if (weekendFilter === 'JAN' && !(loc.dates || []).some((d) => d.startsWith('2027-01-'))) return false;
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const match =
+          loc.title.toLowerCase().includes(q) ||
+          loc.cityName.toLowerCase().includes(q) ||
+          loc.stateName.toLowerCase().includes(q) ||
+          loc.stateCode.toLowerCase() === q ||
+          loc.venueName.toLowerCase().includes(q) ||
+          loc.description.toLowerCase().includes(q);
+        if (!match) return false;
+      }
+      return true;
+    });
+  }, [upcomingEventLocations, selectedStateCode, selectedCityFilter, weekendFilter, searchQuery]);
 
   const hiddenPastLocationsCount = useMemo(() => {
     return eventLocations.filter((loc) => isEventLocationInPast(loc)).length;
@@ -1006,7 +1029,7 @@ END:VCALENDAR`;
             </div>
 
             {/* ============================================================ */}
-            {/* IMPORTED MARKETS FROM MIAMIFARMERSMARKET.ORG SECTION         */}
+            {/* 100 NATIONWIDE USA STATE EVENTS (ALL 50 STATES • DEC & JAN)  */}
             {/* ============================================================ */}
             <div className="bg-[#FAF8F5] rounded-3xl p-5 sm:p-6 border border-[#E8E2D6] space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#E8E2D6] pb-3.5">
@@ -1014,7 +1037,7 @@ END:VCALENDAR`;
                   <div className="flex flex-wrap items-center gap-2">
                     <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-widest bg-emerald-100 text-emerald-800 border border-emerald-200">
                       <CheckCircle2 className="w-3 h-3 text-emerald-700" />
-                      <span>Official Partner Feed • miamifarmersmarket.org</span>
+                      <span>All 50 US States • 100 Major City Events • Fri, Sat &amp; Sun</span>
                     </div>
                     {hiddenPastLocationsCount > 0 && (
                       <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-[#F0EBE0] text-[#5A5A40] border border-[#E8E2D6]">
@@ -1023,14 +1046,14 @@ END:VCALENDAR`;
                     )}
                   </div>
                   <h3 className="font-serif italic font-bold text-xl sm:text-2xl text-[#3D3A30]">
-                    Featured Farmers Markets & Street Festivals ({upcomingEventLocations.length} Upcoming)
+                    100 Nationwide State Markets &amp; Street Festivals ({filteredUpcomingEventLocations.length} Showing)
                   </h3>
                   <p className="text-xs text-[#6B6658]">
-                    Upcoming live markets and vendor events imported from <strong>miamifarmersmarket.org</strong> accepting all 10 vendor categories. Past events are automatically hidden.
+                    2 premier major-city events in every US state running <strong>Friday, Saturday &amp; Sunday</strong> on the end week of December (<strong>Dec 18–20, 2026</strong>) and the end week of January (<strong>Jan 29–31, 2027</strong>), each with a unique event thumbnail and top city venue.
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-2 shrink-0 flex-wrap">
                   <button
                     type="button"
                     onClick={handleSyncMiamiEvents}
@@ -1043,6 +1066,57 @@ END:VCALENDAR`;
                 </div>
               </div>
 
+              {/* End-Week Filter Pills (All 100 / Dec 18-20 / Jan 29-31) */}
+              <div className="flex flex-wrap items-center justify-between gap-2 bg-white p-3 rounded-2xl border border-[#E8E2D6]">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setWeekendFilter('ALL')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      weekendFilter === 'ALL'
+                        ? 'bg-[#5A5A40] text-white shadow-xs'
+                        : 'bg-[#FAF8F5] text-[#6B6658] hover:bg-[#F0EBE0] border border-[#E8E2D6]'
+                    }`}
+                  >
+                    All 100 State Events ({upcomingEventLocations.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setWeekendFilter('DEC')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      weekendFilter === 'DEC'
+                        ? 'bg-emerald-700 text-white shadow-xs'
+                        : 'bg-[#FAF8F5] text-emerald-900 hover:bg-emerald-50 border border-emerald-200'
+                    }`}
+                  >
+                    Dec 18–20, 2026 • Fri–Sun (50 States)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setWeekendFilter('JAN')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      weekendFilter === 'JAN'
+                        ? 'bg-indigo-700 text-white shadow-xs'
+                        : 'bg-[#FAF8F5] text-indigo-900 hover:bg-indigo-50 border border-indigo-200'
+                    }`}
+                  >
+                    Jan 29–31, 2027 • Fri–Sun (50 States)
+                  </button>
+                </div>
+
+                {filteredUpcomingEventLocations.length > 16 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAll100Events((prev) => !prev)}
+                    className="text-xs font-bold text-[#5A5A40] hover:underline cursor-pointer"
+                  >
+                    {showAll100Events
+                      ? 'Compact View (Show Top 16)'
+                      : `Show All ${filteredUpcomingEventLocations.length} Events`}
+                  </button>
+                )}
+              </div>
+
               {miamiSyncNotice && (
                 <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-semibold flex items-center gap-2">
                   <Check className="w-4 h-4 text-emerald-600 shrink-0" />
@@ -1053,7 +1127,7 @@ END:VCALENDAR`;
               {/* What Kind Of Vendor Are You? * Summary Strip */}
               <div className="p-3 rounded-2xl bg-white border border-[#E8E2D6]">
                 <div className="text-[11px] font-bold text-[#3D3A30] mb-1.5">
-                  What Kind Of Vendor Are You? <span className="text-rose-600">*</span> (Accepted at All Imported Markets):
+                  What Kind Of Vendor Are You? <span className="text-rose-600">*</span> (Accepted at All 100 Nationwide Markets):
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5">
                   {VENDOR_KIND_OPTIONS.map((kind) => (
@@ -1068,26 +1142,9 @@ END:VCALENDAR`;
                 </div>
               </div>
 
-              {/* Grid of Imported Event Locations (Only Upcoming Events Shown) */}
+              {/* Grid of 100 Nationwide Event Locations (Only Upcoming Events Shown) */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {upcomingEventLocations
-                  .filter((loc) => {
-                    if (selectedStateCode !== 'ALL' && loc.stateCode !== selectedStateCode) return false;
-                    if (selectedCityFilter && !loc.cityName.toLowerCase().includes(selectedCityFilter.toLowerCase())) return false;
-                    if (searchQuery.trim()) {
-                      const q = searchQuery.toLowerCase().trim();
-                      const match =
-                        loc.title.toLowerCase().includes(q) ||
-                        loc.cityName.toLowerCase().includes(q) ||
-                        loc.stateName.toLowerCase().includes(q) ||
-                        loc.stateCode.toLowerCase() === q ||
-                        loc.venueName.toLowerCase().includes(q) ||
-                        loc.description.toLowerCase().includes(q);
-                      if (!match) return false;
-                    }
-                    return true;
-                  })
-                  .slice(0, 12)
+                {(showAll100Events ? filteredUpcomingEventLocations : filteredUpcomingEventLocations.slice(0, 16))
                   .map((loc) => {
                     const upcomingDates = getUpcomingEventDates(loc.dates);
                     const gallery = loc.images && loc.images.length > 0

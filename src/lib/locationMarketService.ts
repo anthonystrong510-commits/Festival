@@ -13,160 +13,40 @@ import { db, cleanFirestoreData } from './firebase';
 import { EventLocationMarket, CustomCityEntry, ScheduleEvent, VENDOR_KIND_OPTIONS } from '../types';
 import { USA_STATES_CITIES_DATA } from '../data/usaStatesCitiesData';
 import { MIAMI_FARMERS_MARKET_LOCATIONS } from '../data/miamiFarmersMarketEvents';
+import { NATIONWIDE_100_STATE_EVENTS } from '../data/nationwide100Events';
 import { SCHEDULE_EVENTS } from '../data/festivalData';
 
+// Legacy upcoming IDs from earlier seeds that are superseded by the 100-event 50-state schedule
+const LEGACY_SUPERSEDED_LOCATION_IDS = new Set([
+  'loc-columbia-sc',
+  'loc-houston-tx',
+  'loc-denver-co',
+  'loc-nashville-tn',
+  'loc-chicago-il',
+  'mfm-giralda-plaza-artisan-market',
+  'mfm-waterford-business-district-marketplace',
+  'mfm-nikki-beach-miami-beach',
+  'mfm-doral-run-club-market',
+  'mfm-winter-kiddos-land-bayside',
+  'mfm-paws-on-patio-fort-lauderdale',
+  'mfm-flagler-beach-art-craft-festival',
+  'mfm-west-ashley-farmers-market-charleston',
+  'mfm-annapolis-holiday-market',
+  'mfm-ravenswood-autumn-vintage-artisan-market',
+  'mfm-flea-harveys-dallas-market',
+]);
+
+// Past events from earlier in 2026 kept in default list so Admin Past Events Notification can Reschedule or Bulk Delete them
+const INITIAL_PAST_EVENT_LOCATIONS: EventLocationMarket[] = MIAMI_FARMERS_MARKET_LOCATIONS.filter(
+  (loc) => !LEGACY_SUPERSEDED_LOCATION_IDS.has(loc.id)
+);
+
 export const DEFAULT_EVENT_LOCATIONS: EventLocationMarket[] = [
-  ...MIAMI_FARMERS_MARKET_LOCATIONS,
-  {
-    id: 'loc-columbia-sc',
-    title: '2026 Columbia Fall & Holiday First Fridays',
-    stateCode: 'SC',
-    stateName: 'South Carolina',
-    cityName: 'Columbia',
-    venueName: 'Downtown Historic Main St & Riverfront',
-    address: '1200 Main Street, Columbia, SC 29201',
-    description: 'Columbia First Fridays and Weekend Expo will be held across multiple dates. Featuring over 150 maker vendors, non-profit community booths, food truck row, fine art exhibits, craft beverage gardens, and live music stages.',
-    dates: ['2026-11-20', '2026-11-21', '2026-11-22', '2026-12-04', '2026-12-05', '2026-12-06'],
-    days: ['fri', 'sat', 'sun'],
-    hours: '10:00 AM - 7:00 PM',
-    vendorTypesAccepted: [...VENDOR_KIND_OPTIONS, 'Music', 'Art', 'Craft', 'Food', 'Commercial'],
-    boothPricePerDay: 75,
-    totalBoothsCount: 180,
-    active: true,
-    imageUrl: 'https://images.unsplash.com/photo-1533900298318-6b8da08a523e?auto=format&fit=crop&w=900&q=80',
-    images: ['https://images.unsplash.com/photo-1533900298318-6b8da08a523e?auto=format&fit=crop&w=900&q=80'],
-    createdAt: '2026-09-10T12:00:00Z',
-    updatedAt: '2026-09-19T08:00:00Z'
-  },
-  {
-    id: 'loc-florence-al',
-    title: '2026 Florence Shoals First Fridays & Weekend Fair',
-    stateCode: 'AL',
-    stateName: 'Alabama',
-    cityName: 'Florence',
-    venueName: 'Court Street Historic District & Wilson Park',
-    address: '200 N Court St, Florence, AL 35630',
-    description: 'Florence Fall First Fridays will be held on October 2 and October 3, 2026. It will feature maker vendors, non-profit booths, food truck vendors, fine art exhibitors, Muscle Shoals acoustic music, and handcrafted creators.',
-    dates: ['2026-10-02', '2026-10-03'],
-    days: ['fri', 'sat'],
-    hours: '11:00 AM - 8:00 PM',
-    vendorTypesAccepted: [...VENDOR_KIND_OPTIONS, 'Music', 'Art', 'Craft', 'Food', 'Commercial'],
-    boothPricePerDay: 65,
-    totalBoothsCount: 95,
-    active: true,
-    imageUrl: 'https://images.unsplash.com/photo-1488459716781-31db52582fe9?auto=format&fit=crop&w=900&q=80',
-    images: ['https://images.unsplash.com/photo-1488459716781-31db52582fe9?auto=format&fit=crop&w=900&q=80'],
-    createdAt: '2026-09-12T10:00:00Z',
-    updatedAt: '2026-09-19T08:00:00Z'
-  },
-  {
-    id: 'loc-houston-tx',
-    title: '2026 Houston Bayou City Artisan Festival',
-    stateCode: 'TX',
-    stateName: 'Texas',
-    cityName: 'Houston',
-    venueName: 'Sam Houston Park & Downtown Promenade',
-    address: '1000 Bagby St, Houston, TX 77002',
-    description: 'The premier Houston Gulf Coast artisan marketplace bringing together over 300 fine artists, Texas country & blues bands, culinary innovators, international food trucks, and handcrafted makers across 3 full festival days.',
-    dates: ['2026-11-27', '2026-11-28', '2026-11-29'],
-    days: ['fri', 'sat', 'sun'],
-    hours: '10:00 AM - 6:00 PM',
-    vendorTypesAccepted: [...VENDOR_KIND_OPTIONS, 'Music', 'Art', 'Craft', 'Food', 'Commercial'],
-    boothPricePerDay: 110,
-    totalBoothsCount: 260,
-    active: true,
-    imageUrl: 'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&w=900&q=80',
-    images: ['https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&w=900&q=80'],
-    createdAt: '2026-09-12T11:00:00Z',
-    updatedAt: '2026-09-19T08:00:00Z'
-  },
-  {
-    id: 'loc-seattle-wa',
-    title: '2026 Seattle Waterfront Makers & Sound Market',
-    stateCode: 'WA',
-    stateName: 'Washington',
-    cityName: 'Seattle',
-    venueName: 'Pier 62 Waterfront Park & Belltown',
-    address: '1951 Alaskan Way, Seattle, WA 98101',
-    description: 'Pacific Northwest artisan gathering along Puget Sound featuring glassblowing, woodcraft, specialty espresso bars, indie folk artists, fresh seafood stalls, and indigenous art collectives over a multi-date weekend.',
-    dates: ['2026-09-25', '2026-09-26', '2026-09-27'],
-    days: ['fri', 'sat', 'sun'],
-    hours: '10:00 AM - 7:00 PM',
-    vendorTypesAccepted: [...VENDOR_KIND_OPTIONS, 'Music', 'Art', 'Craft', 'Food', 'Commercial'],
-    boothPricePerDay: 125,
-    totalBoothsCount: 160,
-    active: true,
-    imageUrl: 'https://images.unsplash.com/photo-1565123409695-7b5ef63a2efb?auto=format&fit=crop&w=900&q=80',
-    images: ['https://images.unsplash.com/photo-1565123409695-7b5ef63a2efb?auto=format&fit=crop&w=900&q=80'],
-    createdAt: '2026-09-14T09:00:00Z',
-    updatedAt: '2026-09-19T08:00:00Z'
-  },
-  {
-    id: 'loc-denver-co',
-    title: '2026 Denver Mile-High Winter Artisan Expo',
-    stateCode: 'CO',
-    stateName: 'Colorado',
-    cityName: 'Denver',
-    venueName: 'Civic Center Park Promenade',
-    address: '101 W 14th Ave, Denver, CO 80204',
-    description: 'Outdoor Rocky Mountain showcase of fine pottery, mountain gear crafters, local micro-distillers, bluegrass bands, and gourmet food trucks.',
-    dates: ['2026-11-20', '2026-11-21', '2026-11-22'],
-    days: ['fri', 'sat', 'sun'],
-    hours: '10:00 AM - 6:00 PM',
-    vendorTypesAccepted: [...VENDOR_KIND_OPTIONS, 'Music', 'Art', 'Craft', 'Food', 'Commercial'],
-    boothPricePerDay: 95,
-    totalBoothsCount: 175,
-    active: true,
-    imageUrl: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=900&q=80',
-    images: ['https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=900&q=80'],
-    createdAt: '2026-09-14T10:00:00Z',
-    updatedAt: '2026-09-19T08:00:00Z'
-  },
-  {
-    id: 'loc-nashville-tn',
-    title: '2026 Nashville Music City Artisan & Sound Showcase',
-    stateCode: 'TN',
-    stateName: 'Tennessee',
-    cityName: 'Nashville',
-    venueName: 'Riverfront Park & Lower Broadway Commons',
-    address: '100 1st Ave N, Nashville, TN 37201',
-    description: 'Nashville celebration featuring live country and soul performances, handcrafted leather goods, custom instrument makers, Nashville hot chicken masters, and regional craft distilleries.',
-    dates: ['2026-12-11', '2026-12-12', '2026-12-13'],
-    days: ['fri', 'sat', 'sun'],
-    hours: '11:00 AM - 9:00 PM',
-    vendorTypesAccepted: [...VENDOR_KIND_OPTIONS, 'Music', 'Art', 'Craft', 'Food', 'Commercial'],
-    boothPricePerDay: 105,
-    totalBoothsCount: 210,
-    active: true,
-    imageUrl: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=900&q=80',
-    images: ['https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=900&q=80'],
-    createdAt: '2026-09-14T12:00:00Z',
-    updatedAt: '2026-09-19T08:00:00Z'
-  },
-  {
-    id: 'loc-chicago-il',
-    title: '2026 Chicago Lakefront Artisan Showcase',
-    stateCode: 'IL',
-    stateName: 'Illinois',
-    cityName: 'Chicago',
-    venueName: 'Grant Park South Grove',
-    address: '337 E Randolph St, Chicago, IL 60601',
-    description: 'Premier Midwestern arts and craft market with views of Lake Michigan and the skyline. Over 200 vendors, jazz and blues stages, craft brewers, and local bakers.',
-    dates: ['2026-11-27', '2026-11-28', '2026-11-29'],
-    days: ['fri', 'sat', 'sun'],
-    hours: '10:00 AM - 6:30 PM',
-    vendorTypesAccepted: [...VENDOR_KIND_OPTIONS, 'Music', 'Art', 'Craft', 'Food', 'Commercial'],
-    boothPricePerDay: 120,
-    totalBoothsCount: 220,
-    active: true,
-    imageUrl: 'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?auto=format&fit=crop&w=900&q=80',
-    images: ['https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?auto=format&fit=crop&w=900&q=80'],
-    createdAt: '2026-09-15T08:00:00Z',
-    updatedAt: '2026-09-19T08:00:00Z'
-  }
+  ...NATIONWIDE_100_STATE_EVENTS,
+  ...INITIAL_PAST_EVENT_LOCATIONS,
 ];
 
-const LOCATIONS_CACHE_KEY = 'columbia_event_locations_cache_v4';
+const LOCATIONS_CACHE_KEY = 'columbia_event_locations_cache_v6_100events';
 const DELETED_LOCATIONS_KEY = 'columbia_deleted_location_ids_v1';
 const CITIES_CACHE_KEY = 'columbia_custom_cities_cache_v1';
 const SCHEDULE_EVENTS_CACHE_KEY = 'columbia_admin_schedule_events_v2';
@@ -398,13 +278,15 @@ export function subscribeEventLocations(
   locationSubscribers.add(callback);
   const deletedIds = getDeletedLocationIds();
 
-  // 1. Initial cached fallback merged with DEFAULT_EVENT_LOCATIONS (excluding deleted IDs)
+  // 1. Initial cached fallback merged with DEFAULT_EVENT_LOCATIONS (excluding deleted & legacy superseded IDs)
   try {
     const cachedStr = localStorage.getItem(LOCATIONS_CACHE_KEY);
     if (cachedStr) {
       const parsed = JSON.parse(cachedStr);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        const filteredParsed = parsed.filter((l: EventLocationMarket) => !deletedIds.has(l.id));
+        const filteredParsed = parsed.filter(
+          (l: EventLocationMarket) => !deletedIds.has(l.id) && !LEGACY_SUPERSEDED_LOCATION_IDS.has(l.id)
+        );
         const existingIds = new Set(filteredParsed.map((l: EventLocationMarket) => l.id));
         const merged = filteredParsed.map(enrichWithDefaultImages);
         for (const def of DEFAULT_EVENT_LOCATIONS) {
@@ -436,7 +318,7 @@ export function subscribeEventLocations(
       }
       const list: EventLocationMarket[] = [];
       snapshot.forEach((docSnap) => {
-        if (!currentDeletedIds.has(docSnap.id)) {
+        if (!currentDeletedIds.has(docSnap.id) && !LEGACY_SUPERSEDED_LOCATION_IDS.has(docSnap.id)) {
           list.push(enrichWithDefaultImages({ id: docSnap.id, ...(docSnap.data() as Omit<EventLocationMarket, 'id'>) }));
         }
       });
@@ -463,6 +345,50 @@ export function subscribeEventLocations(
   return () => {
     locationSubscribers.delete(callback);
     unsubFirestore();
+  };
+}
+
+/**
+ * Generates and syncs all 100 Nationwide US State Events (50 states × 2 major cities:
+ * Dec 18–20, 2026 Fri–Sun & Jan 29–31, 2027 Fri–Sun) to Firestore & local cache.
+ */
+export async function syncAll100NationwideEventsToFirestore(): Promise<{
+  syncedCount: number;
+  locations: EventLocationMarket[];
+}> {
+  const all100 = [...NATIONWIDE_100_STATE_EVENTS];
+  removeDeletedLocationIds(all100.map((e) => e.id));
+
+  try {
+    const deletedIds = getDeletedLocationIds();
+    const cachedStr = localStorage.getItem(LOCATIONS_CACHE_KEY);
+    const current: EventLocationMarket[] = cachedStr ? JSON.parse(cachedStr) : [...DEFAULT_EVENT_LOCATIONS];
+    const map = new Map<string, EventLocationMarket>();
+    for (const item of all100) {
+      map.set(item.id, item);
+    }
+    for (const existing of current) {
+      if (!map.has(existing.id) && !deletedIds.has(existing.id) && !LEGACY_SUPERSEDED_LOCATION_IDS.has(existing.id)) {
+        map.set(existing.id, enrichWithDefaultImages(existing));
+      }
+    }
+    const updatedList = Array.from(map.values());
+    localStorage.setItem(LOCATIONS_CACHE_KEY, JSON.stringify(updatedList));
+    notifyLocationSubscribers(updatedList);
+  } catch {}
+
+  await Promise.all(
+    all100.map(async (loc) => {
+      try {
+        const cleaned = cleanFirestoreData(loc);
+        await setDoc(doc(db, 'event_locations', loc.id), cleaned, { merge: true });
+      } catch {}
+    })
+  );
+
+  return {
+    syncedCount: all100.length,
+    locations: all100,
   };
 }
 
@@ -563,11 +489,11 @@ export async function saveEventLocation(
     zipCode: location.zipCode || '',
     mapUrl: location.mapUrl || '',
     description: location.description || `${location.cityName} Artisan and Community Marketplace featuring maker vendors, fine art exhibitors, food trucks, and live entertainment.`,
-    dates: location.dates && location.dates.length > 0 ? location.dates : ['2026-10-02'],
+    dates: location.dates && location.dates.length > 0 ? location.dates : ['2026-12-18', '2026-12-19', '2026-12-20'],
     startDate: location.startDate,
     endDate: location.endDate,
     isNonStop: location.isNonStop,
-    days: location.days && location.days.length > 0 ? location.days : ['fri', 'sat'],
+    days: location.days && location.days.length > 0 ? location.days : ['fri', 'sat', 'sun'],
     hours: location.hours || '10:00 AM - 6:00 PM',
     vendorTypesAccepted: location.vendorTypesAccepted && location.vendorTypesAccepted.length > 0 
       ? location.vendorTypesAccepted 
@@ -739,7 +665,7 @@ export async function bulkUpdateLocationsDays(
 }
 
 // -------------------------------------------------------------
-// SCHEDULE EVENTS SUBSCRIPTION & BULK DELETE
+// SCHEDULE EVENTS SUBSCRIPTION, BULK DELETE & BULK RESCHEDULE
 // -------------------------------------------------------------
 
 function getDeletedScheduleEventIds(): Set<string> {
@@ -780,10 +706,10 @@ export function getInitialScheduleEvents(): ScheduleEvent[] {
       evt.dates && evt.dates.length > 0
         ? evt.dates
         : evt.day === 'fri'
-        ? ['2026-12-04']
+        ? ['2026-12-18']
         : evt.day === 'sat'
-        ? ['2026-12-05']
-        : ['2026-12-06'],
+        ? ['2026-12-19']
+        : ['2026-12-20'],
     locationDescription: evt.locationDescription || 'Festival Pavilion Main Plaza & Stage',
   }));
 }
@@ -817,6 +743,101 @@ export async function bulkDeleteScheduleEvents(ids: string[]): Promise<number> {
   const filtered = current.filter((e) => !idSet.has(e.id));
   saveScheduleEventsList(filtered);
   return ids.length;
+}
+
+export type ReschedulePreset = 'dec_end_week' | 'jan_end_week' | 'both_dec_jan' | 'custom';
+
+/**
+ * Bulk reschedules past/selected market locations AND stage schedule events
+ * to new upcoming Friday–Saturday–Sunday dates (e.g., Dec 18–20, 2026, Jan 29–31, 2027, both, or custom).
+ */
+export async function bulkReschedulePastEvents(options: {
+  locationIds: string[];
+  scheduleIds?: string[];
+  preset: ReschedulePreset;
+  customStartDate?: string;
+  customEndDate?: string;
+  days?: Array<'fri' | 'sat' | 'sun'>;
+}): Promise<{
+  rescheduledLocations: number;
+  rescheduledSchedules: number;
+  rescheduledLocationsCount: number;
+  rescheduledScheduleCount: number;
+  datesApplied: string[];
+}> {
+  const daysToApply: Array<'fri' | 'sat' | 'sun'> =
+    options.days && options.days.length > 0 ? options.days : ['fri', 'sat', 'sun'];
+  const scheduleIds = options.scheduleIds || [];
+
+  let datesToApply: string[] = ['2026-12-18', '2026-12-19', '2026-12-20'];
+  let startDate = '2026-12-18';
+  let endDate = '2026-12-20';
+  let isNonStop = true;
+
+  if (options.preset === 'dec_end_week') {
+    datesToApply = ['2026-12-18', '2026-12-19', '2026-12-20'];
+    startDate = '2026-12-18';
+    endDate = '2026-12-20';
+    isNonStop = true;
+  } else if (options.preset === 'jan_end_week') {
+    datesToApply = ['2027-01-29', '2027-01-30', '2027-01-31'];
+    startDate = '2027-01-29';
+    endDate = '2027-01-31';
+    isNonStop = true;
+  } else if (options.preset === 'both_dec_jan') {
+    datesToApply = [
+      '2026-12-18',
+      '2026-12-19',
+      '2026-12-20',
+      '2027-01-29',
+      '2027-01-30',
+      '2027-01-31',
+    ];
+    startDate = '2026-12-18';
+    endDate = '2027-01-31';
+    isNonStop = false;
+  } else if (options.preset === 'custom') {
+    startDate = options.customStartDate || '2026-12-18';
+    endDate = options.customEndDate || '2026-12-20';
+    datesToApply = generateDateRangeList(startDate, endDate);
+    isNonStop = true;
+  }
+
+  if (options.locationIds.length > 0) {
+    await bulkUpdateLocationsDays(options.locationIds, {
+      actionType: 'set_both',
+      days: daysToApply,
+      dates: datesToApply,
+      startDate,
+      endDate,
+      isNonStop,
+    });
+  }
+
+  if (scheduleIds.length > 0) {
+    const idSet = new Set(scheduleIds);
+    const currentSchedule = getInitialScheduleEvents();
+    const updatedSchedule = currentSchedule.map((evt) => {
+      if (idSet.has(evt.id)) {
+        return {
+          ...evt,
+          days: [...daysToApply],
+          day: daysToApply[0] || 'fri',
+          dates: [...datesToApply],
+        };
+      }
+      return evt;
+    });
+    saveScheduleEventsList(updatedSchedule);
+  }
+
+  return {
+    rescheduledLocations: options.locationIds.length,
+    rescheduledSchedules: scheduleIds.length,
+    rescheduledLocationsCount: options.locationIds.length,
+    rescheduledScheduleCount: scheduleIds.length,
+    datesApplied: datesToApply,
+  };
 }
 
 // -------------------------------------------------------------

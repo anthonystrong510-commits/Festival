@@ -290,12 +290,36 @@ export function ScheduleManagerTab() {
             <button
               type="button"
               onClick={() => {
+                const pastIds = pastScheduleEvents.map((e) => e.id);
+                const updated = events.map((evt) =>
+                  pastIds.includes(evt.id)
+                    ? {
+                        ...evt,
+                        days: ['fri', 'sat', 'sun'] as Array<'fri' | 'sat' | 'sun'>,
+                        day: 'fri' as const,
+                        dates: ['2026-12-18', '2026-12-19', '2026-12-20', '2027-01-29', '2027-01-30', '2027-01-31']
+                      }
+                    : evt
+                );
+                persistEvents(updated);
+                showToast(`Rescheduled all ${pastIds.length} past stage events to Dec 18–20, 2026 & Jan 29–31, 2027 (Fri–Sun)!`);
+              }}
+              className="px-3.5 py-2 rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+            >
+              <CalendarDays className="w-4 h-4" />
+              <span>Reschedule All to Dec 18–20 &amp; Jan 29–31</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
                 setSelectedEventIds(pastScheduleEvents.map((e) => e.id));
+                setBulkDays(['fri', 'sat', 'sun']);
+                setBulkDates(['2026-12-18', '2026-12-19', '2026-12-20']);
                 setIsBulkEditModalOpen(true);
               }}
-              className="px-3.5 py-2 rounded-2xl bg-white hover:bg-amber-100 text-amber-950 border border-amber-300 text-xs font-bold transition-colors"
+              className="px-3.5 py-2 rounded-2xl bg-white hover:bg-amber-100 text-amber-950 border border-amber-300 text-xs font-bold transition-colors cursor-pointer"
             >
-              Reschedule Past Events ({pastScheduleEvents.length})
+              Custom Reschedule ({pastScheduleEvents.length})
             </button>
             <button
               type="button"
@@ -783,6 +807,30 @@ export function ScheduleManagerTab() {
                 <label className="font-bold text-[#5A5A40] block">
                   Multiple Dates to apply to all ({bulkDates.length}):
                 </label>
+
+                <div className="flex flex-wrap items-center gap-1.5 pb-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBulkDays(['fri', 'sat', 'sun']);
+                      setBulkDates(['2026-12-18', '2026-12-19', '2026-12-20']);
+                    }}
+                    className="px-2.5 py-1 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-900 text-[10px] font-bold border border-emerald-300 cursor-pointer"
+                  >
+                    Dec 18–20, 2026 (Fri–Sun)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBulkDays(['fri', 'sat', 'sun']);
+                      setBulkDates(['2027-01-29', '2027-01-30', '2027-01-31']);
+                    }}
+                    className="px-2.5 py-1 rounded-lg bg-teal-100 hover:bg-teal-200 text-teal-900 text-[10px] font-bold border border-teal-300 cursor-pointer"
+                  >
+                    Jan 29–31, 2027 (Fri–Sun)
+                  </button>
+                </div>
+
                 <div className="flex flex-wrap gap-1.5">
                   {bulkDates.map((d) => (
                     <span key={d} className="px-2 py-0.5 rounded-lg bg-white border border-[#D8D2C2] font-mono text-[11px] font-bold flex items-center gap-1">

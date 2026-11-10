@@ -58,7 +58,7 @@ import { FestivalSettingsTab } from './tabs/FestivalSettingsTab';
 
 // Modals
 import { InvoicePreviewModal } from './modals/InvoicePreviewModal';
-import { Send, X, Check, Eye, CheckCircle2, ExternalLink, ShieldCheck, Mail, Sparkles, Bell, Trash2, AlertTriangle, Calendar, MapPin, CheckSquare, Square } from 'lucide-react';
+import { Send, X, Check, Eye, CheckCircle2, ExternalLink, ShieldCheck, Mail, Sparkles, Bell, Trash2, AlertTriangle, Calendar, CalendarDays, RefreshCw, MapPin, CheckSquare, Square } from 'lucide-react';
 import { interpolateTemplate } from '../../lib/antiSpamUtils';
 import {
   subscribeEventLocations,
@@ -67,6 +67,8 @@ import {
   isScheduleEventInPast,
   bulkDeleteEventLocations,
   bulkDeleteScheduleEvents,
+  bulkReschedulePastEvents,
+  ReschedulePreset,
   formatEventDate
 } from '../../lib/locationMarketService';
 
@@ -96,13 +98,17 @@ export function KingAdminPortal({ onExitAdmin }: KingAdminPortalProps) {
   const [eventLocations, setEventLocations] = useState<EventLocationMarket[]>([]);
   const [scheduleEvents, setScheduleEvents] = useState<ScheduleEvent[]>([]);
 
-  // Past Events Cleanup Notification & Bulk Delete Modal State
+  // Past Events Cleanup Notification, Reschedule & Bulk Delete Modal State
   const [isPastEventsModalOpen, setIsPastEventsModalOpen] = useState(false);
   const [hasPromptedPastEvents, setHasPromptedPastEvents] = useState(false);
   const [pastBannerDismissed, setPastBannerDismissed] = useState(false);
   const [selectedPastLocationIds, setSelectedPastLocationIds] = useState<string[]>([]);
   const [selectedPastScheduleIds, setSelectedPastScheduleIds] = useState<string[]>([]);
   const [isDeletingPastEvents, setIsDeletingPastEvents] = useState(false);
+  const [isReschedulingPastEvents, setIsReschedulingPastEvents] = useState(false);
+  const [reschedulePreset, setReschedulePreset] = useState<ReschedulePreset>('dec_end_week');
+  const [rescheduleCustomStart, setRescheduleCustomStart] = useState('2026-12-18');
+  const [rescheduleCustomEnd, setRescheduleCustomEnd] = useState('2026-12-20');
   const [pastEventsToast, setPastEventsToast] = useState<string | null>(null);
 
   // Modals and Inspector states
@@ -220,6 +226,62 @@ export function KingAdminPortal({ onExitAdmin }: KingAdminPortalProps) {
       setTimeout(() => setPastEventsToast(null), 5000);
     } finally {
       setIsDeletingPastEvents(false);
+    }
+  };
+
+  const handleRescheduleSelectedPastEvents = async () => {
+    if (selectedPastLocationIds.length === 0 && selectedPastScheduleIds.length === 0) return;
+    setIsReschedulingPastEvents(true);
+    try {
+      const res = await bulkReschedulePastEvents({
+        locationIds: selectedPastLocationIds,
+        scheduleIds: selectedPastScheduleIds,
+        preset: reschedulePreset,
+        customStartDate: rescheduleCustomStart,
+        customEndDate: rescheduleCustomEnd,
+        days: ['fri', 'sat', 'sun']
+      });
+      const totalRescheduled = res.rescheduledLocationsCount + res.rescheduledScheduleCount;
+      const presetLabel =
+        reschedulePreset === 'dec_end_week'
+          ? 'Dec 18–20, 2026 (Fri–Sun)'
+          : reschedulePreset === 'jan_end_week'
+          ? 'Jan 29–31, 2027 (Fri–Sun)'
+          : reschedulePreset === 'both_dec_jan'
+          ? 'Dec 18–20, 2026 & Jan 29–31, 2027 (Fri–Sun)'
+          : `${rescheduleCustomStart} to ${rescheduleCustomEnd}`;
+      setIsPastEventsModalOpen(false);
+      setPastEventsToast(`Successfully rescheduled ${totalRescheduled} past ${totalRescheduled === 1 ? 'event' : 'events'} to ${presetLabel}! They are now live on the public directory.`);
+      setTimeout(() => setPastEventsToast(null), 6000);
+    } finally {
+      setIsReschedulingPastEvents(false);
+    }
+  };
+
+  const handleQuickRescheduleAllPastEvents = async (preset: ReschedulePreset = 'dec_end_week') => {
+    const locIds = pastLocations.map((l) => l.id);
+    const schIds = pastScheduleEvents.map((e) => e.id);
+    if (locIds.length === 0 && schIds.length === 0) return;
+    setIsReschedulingPastEvents(true);
+    try {
+      const res = await bulkReschedulePastEvents({
+        locationIds: locIds,
+        scheduleIds: schIds,
+        preset,
+        days: ['fri', 'sat', 'sun']
+      });
+      const totalRescheduled = res.rescheduledLocationsCount + res.rescheduledScheduleCount;
+      const presetLabel =
+        preset === 'dec_end_week'
+          ? 'Dec 18–20, 2026 (Fri–Sun)'
+          : preset === 'jan_end_week'
+          ? 'Jan 29–31, 2027 (Fri–Sun)'
+          : 'Dec 18–20, 2026 & Jan 29–31, 2027 (Fri–Sun)';
+      setIsPastEventsModalOpen(false);
+      setPastEventsToast(`Successfully rescheduled all ${totalRescheduled} past events to ${presetLabel}!`);
+      setTimeout(() => setPastEventsToast(null), 6000);
+    } finally {
+      setIsReschedulingPastEvents(false);
     }
   };
 
@@ -482,12 +544,12 @@ export function KingAdminPortal({ onExitAdmin }: KingAdminPortalProps) {
                         Past Events Notification
                       </span>
                       <h3 className="font-bold text-sm sm:text-base text-amber-950">
-                        {totalPastEventsCount} Past {totalPastEventsCount === 1 ? 'Event Is' : 'Events Are'} Hidden from Public View — Bulk Delete?
+                        {totalPastEventsCount} Past {totalPastEventsCount === 1 ? 'Event Is' : 'Events Are'} Hidden from Public View — Reschedule Dates or Bulk Delete?
                       </h3>
                     </div>
                     <p className="text-xs text-amber-900 leading-relaxed">
                       <strong>{pastLocations.length}</strong> market {pastLocations.length === 1 ? 'location' : 'locations'} and{' '}
-                      <strong>{pastScheduleEvents.length}</strong> scheduled stage {pastScheduleEvents.length === 1 ? 'event' : 'events'} have dates in the past. They are automatically hidden from public visitors. Would you like to bulk delete them now?
+                      <strong>{pastScheduleEvents.length}</strong> scheduled stage {pastScheduleEvents.length === 1 ? 'event' : 'events'} have dates in the past and are hidden from visitors. You can <strong>reschedule all of their dates</strong> to upcoming Fri–Sun weekends (Dec 18–20 or Jan 29–31) or bulk delete them.
                     </p>
                   </div>
                 </div>
@@ -498,13 +560,23 @@ export function KingAdminPortal({ onExitAdmin }: KingAdminPortalProps) {
                     onClick={() => setIsPastEventsModalOpen(true)}
                     className="px-3.5 py-2 rounded-xl bg-white hover:bg-amber-100 text-amber-950 border border-amber-300 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
                   >
-                    <Eye className="w-3.5 h-3.5 text-amber-700" />
-                    <span>Review & Select ({totalPastEventsCount})</span>
+                    <CalendarDays className="w-3.5 h-3.5 text-emerald-700" />
+                    <span>Reschedule or Review ({totalPastEventsCount})</span>
                   </button>
 
                   <button
                     type="button"
-                    disabled={isDeletingPastEvents}
+                    disabled={isReschedulingPastEvents || isDeletingPastEvents}
+                    onClick={() => handleQuickRescheduleAllPastEvents('both_dec_jan')}
+                    className="px-3.5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer disabled:opacity-60"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isReschedulingPastEvents ? 'animate-spin' : ''}`} />
+                    <span>{isReschedulingPastEvents ? 'Rescheduling...' : 'Reschedule All (Dec 18–20 & Jan 29–31)'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={isDeletingPastEvents || isReschedulingPastEvents}
                     onClick={handleQuickBulkDeleteAllPastEvents}
                     className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer disabled:opacity-60"
                   >
@@ -933,15 +1005,15 @@ export function KingAdminPortal({ onExitAdmin }: KingAdminPortalProps) {
         </div>
       )}
 
-      {/* PAST EVENTS NOTIFICATION & BULK DELETE PROMPT MODAL */}
+      {/* PAST EVENTS NOTIFICATION: RESCHEDULE DATES OR BULK DELETE MODAL */}
       {isPastEventsModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-3xl border border-[#E8E2D6] w-full max-w-2xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col my-auto">
             {/* Modal Header */}
             <div className="p-6 border-b border-[#E8E2D6] bg-amber-50/70 flex items-start justify-between gap-4">
               <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-rose-600 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
-                  <AlertTriangle className="w-5 h-5" />
+                <div className="w-10 h-10 rounded-2xl bg-amber-600 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
+                  <CalendarDays className="w-5 h-5" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
@@ -949,11 +1021,11 @@ export function KingAdminPortal({ onExitAdmin }: KingAdminPortalProps) {
                       Auto-Hidden from Public
                     </span>
                     <h3 className="text-base sm:text-lg font-bold text-[#3D3A30]">
-                      Past Events Cleanup & Bulk Delete ({totalPastEventsCount})
+                      Past Events: Reschedule Dates or Bulk Delete ({totalPastEventsCount})
                     </h3>
                   </div>
                   <p className="text-xs text-[#6B6658] mt-1">
-                    Events in the past are automatically hidden from public visitors. Select the expired events below that you would like to permanently bulk delete.
+                    Events in the past are automatically hidden from public visitors. Select past events below to either <strong>reschedule their dates</strong> to upcoming Friday–Sunday weekends or permanently <strong>bulk delete</strong> them.
                   </p>
                 </div>
               </div>
@@ -972,13 +1044,117 @@ export function KingAdminPortal({ onExitAdmin }: KingAdminPortalProps) {
               {totalPastEventsCount === 0 ? (
                 <div className="p-8 text-center space-y-2 bg-[#FAF8F5] rounded-2xl border border-[#E8E2D6]">
                   <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
-                  <h4 className="font-bold text-sm text-[#3D3A30]">All Past Events Cleaned Up!</h4>
+                  <h4 className="font-bold text-sm text-[#3D3A30]">All Past Events Rescheduled or Cleaned Up!</h4>
                   <p className="text-xs text-[#7A7566]">
                     There are currently no expired market locations or past stage events in the database.
                   </p>
                 </div>
               ) : (
                 <>
+                  {/* Reschedule Dates Configuration Box */}
+                  <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200 space-y-3">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <CalendarDays className="w-4 h-4 text-emerald-700 shrink-0" />
+                        <span className="font-bold text-emerald-950 text-xs sm:text-sm">
+                          Reschedule Dates Option (Fri, Sat &amp; Sun Weekend)
+                        </span>
+                      </div>
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-200/80 text-emerald-900 text-[10px] font-bold">
+                        Makes Events Live Again
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setReschedulePreset('dec_end_week')}
+                        className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                          reschedulePreset === 'dec_end_week'
+                            ? 'bg-emerald-700 text-white border-emerald-700 shadow-xs'
+                            : 'bg-white text-[#3D3A30] border-emerald-200 hover:bg-emerald-100/50'
+                        }`}
+                      >
+                        <div className="font-bold text-xs">Dec 18–20, 2026 (Fri–Sun)</div>
+                        <div className={`text-[10px] ${reschedulePreset === 'dec_end_week' ? 'text-emerald-100' : 'text-[#7A7566]'}`}>
+                          End Week of December • Fri, Sat &amp; Sun
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setReschedulePreset('jan_end_week')}
+                        className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                          reschedulePreset === 'jan_end_week'
+                            ? 'bg-emerald-700 text-white border-emerald-700 shadow-xs'
+                            : 'bg-white text-[#3D3A30] border-emerald-200 hover:bg-emerald-100/50'
+                        }`}
+                      >
+                        <div className="font-bold text-xs">Jan 29–31, 2027 (Fri–Sun)</div>
+                        <div className={`text-[10px] ${reschedulePreset === 'jan_end_week' ? 'text-emerald-100' : 'text-[#7A7566]'}`}>
+                          End Week of January • Fri, Sat &amp; Sun
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setReschedulePreset('both_dec_jan')}
+                        className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                          reschedulePreset === 'both_dec_jan'
+                            ? 'bg-emerald-700 text-white border-emerald-700 shadow-xs'
+                            : 'bg-white text-[#3D3A30] border-emerald-200 hover:bg-emerald-100/50'
+                        }`}
+                      >
+                        <div className="font-bold text-xs">Both Dec 18–20 &amp; Jan 29–31</div>
+                        <div className={`text-[10px] ${reschedulePreset === 'both_dec_jan' ? 'text-emerald-100' : 'text-[#7A7566]'}`}>
+                          6 Total Days Across Dec &amp; Jan End Weeks
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setReschedulePreset('custom')}
+                        className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                          reschedulePreset === 'custom'
+                            ? 'bg-emerald-700 text-white border-emerald-700 shadow-xs'
+                            : 'bg-white text-[#3D3A30] border-emerald-200 hover:bg-emerald-100/50'
+                        }`}
+                      >
+                        <div className="font-bold text-xs">Custom Date Range</div>
+                        <div className={`text-[10px] ${reschedulePreset === 'custom' ? 'text-emerald-100' : 'text-[#7A7566]'}`}>
+                          Pick any upcoming start &amp; end dates
+                        </div>
+                      </button>
+                    </div>
+
+                    {reschedulePreset === 'custom' && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                        <div>
+                          <label className="block text-[10px] font-bold uppercase text-emerald-900 mb-1">
+                            New Start Date
+                          </label>
+                          <input
+                            type="date"
+                            value={rescheduleCustomStart}
+                            onChange={(e) => setRescheduleCustomStart(e.target.value)}
+                            className="w-full px-3 py-1.5 rounded-xl bg-white border border-emerald-300 text-xs font-semibold text-[#3D3A30]"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold uppercase text-emerald-900 mb-1">
+                            New End Date
+                          </label>
+                          <input
+                            type="date"
+                            value={rescheduleCustomEnd}
+                            onChange={(e) => setRescheduleCustomEnd(e.target.value)}
+                            className="w-full px-3 py-1.5 rounded-xl bg-white border border-emerald-300 text-xs font-semibold text-[#3D3A30]"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   {/* Select All Controls */}
                   <div className="flex items-center justify-between pb-3 border-b border-[#E8E2D6]">
                     <div className="flex items-center gap-3">
@@ -1007,8 +1183,8 @@ export function KingAdminPortal({ onExitAdmin }: KingAdminPortalProps) {
                         <span>Select / Deselect All Past Events</span>
                       </button>
                     </div>
-                    <span className="font-bold text-rose-700">
-                      {selectedPastLocationIds.length + selectedPastScheduleIds.length} of {totalPastEventsCount} selected for deletion
+                    <span className="font-bold text-[#5A5A40]">
+                      {selectedPastLocationIds.length + selectedPastScheduleIds.length} of {totalPastEventsCount} selected
                     </span>
                   </div>
 
@@ -1152,32 +1328,53 @@ export function KingAdminPortal({ onExitAdmin }: KingAdminPortalProps) {
                 Past events remain hidden from visitors until rescheduled or deleted.
               </span>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setIsPastEventsModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-bold text-[#7A7566] hover:bg-white transition-colors"
+                  className="px-3.5 py-2 rounded-xl text-xs font-bold text-[#7A7566] hover:bg-white transition-colors"
                 >
                   Keep Hidden for Now
                 </button>
 
                 {totalPastEventsCount > 0 && (
-                  <button
-                    type="button"
-                    disabled={
-                      isDeletingPastEvents ||
-                      (selectedPastLocationIds.length === 0 && selectedPastScheduleIds.length === 0)
-                    }
-                    onClick={handleBulkDeleteSelectedPastEvents}
-                    className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm disabled:opacity-50 cursor-pointer transition-colors"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>
-                      {isDeletingPastEvents
-                        ? 'Bulk Deleting...'
-                        : `Bulk Delete Selected (${selectedPastLocationIds.length + selectedPastScheduleIds.length})`}
-                    </span>
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      disabled={
+                        isReschedulingPastEvents ||
+                        isDeletingPastEvents ||
+                        (selectedPastLocationIds.length === 0 && selectedPastScheduleIds.length === 0)
+                      }
+                      onClick={handleRescheduleSelectedPastEvents}
+                      className="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm disabled:opacity-50 cursor-pointer transition-colors"
+                    >
+                      <CalendarDays className="w-3.5 h-3.5" />
+                      <span>
+                        {isReschedulingPastEvents
+                          ? 'Rescheduling...'
+                          : `Reschedule Selected Dates (${selectedPastLocationIds.length + selectedPastScheduleIds.length})`}
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={
+                        isDeletingPastEvents ||
+                        isReschedulingPastEvents ||
+                        (selectedPastLocationIds.length === 0 && selectedPastScheduleIds.length === 0)
+                      }
+                      onClick={handleBulkDeleteSelectedPastEvents}
+                      className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm disabled:opacity-50 cursor-pointer transition-colors"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>
+                        {isDeletingPastEvents
+                          ? 'Bulk Deleting...'
+                          : `Bulk Delete Selected (${selectedPastLocationIds.length + selectedPastScheduleIds.length})`}
+                      </span>
+                    </button>
+                  </>
                 )}
               </div>
             </div>
